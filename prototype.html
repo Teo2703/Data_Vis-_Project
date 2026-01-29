@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Climate & Emissions Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Crimson+Pro:wght@300;400;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e12;
+            --bg-secondary: #131820;
+            --bg-card: #1a2028;
+            --text-primary: #e8eaed;
+            --text-secondary: #9aa0a6;
+            --accent-warm: #ff6b35;
+            --accent-cool: #4ecdc4;
+            --accent-neutral: #f7fff7;
+            --grid-color: #2a3038;
+            --shadow: rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            font-family: 'Crimson Pro', serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(78, 205, 196, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 107, 53, 0.05) 0%, transparent 50%);
+        }
+
+        .header {
+            padding: 3rem 2rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid var(--grid-color);
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-cool) 0%, var(--accent-warm) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 300;
+        }
+
+        .dashboard {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px var(--shadow);
+            border: 1px solid var(--grid-color);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-cool), var(--accent-warm));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .chart-container:hover::before {
+            opacity: 1;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 48px var(--shadow);
+        }
+
+        .chart-container.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .chart-description {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        select, input[type="range"], input[type="number"] {
+            font-family: 'DM Mono', monospace;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--grid-color);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+        }
+
+        select:hover, select:focus, input:hover, input:focus {
+            border-color: var(--accent-cool);
+            outline: none;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+            width: 200px;
+        }
+
+        input[type="range"]::-webkit-slider-track {
+            background: var(--grid-color);
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -6px;
+            background: var(--accent-cool);
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(78, 205, 196, 0.4);
+        }
+
+        input[type="range"]::-moz-range-track {
+            background: var(--grid-color);
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            background: var(--accent-cool);
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 2px 8px rgba(78, 205, 196, 0.4);
+        }
+
+        input[type="number"] {
+            width: 80px;
+        }
+
+        .year-display {
+            font-family: 'DM Mono', monospace;
+            font-size: 1.25rem;
+            color: var(--accent-cool);
+            font-weight: 500;
+        }
+
+        .year-range-group {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        /* Multi-select country picker */
+        .country-picker {
+            position: relative;
+        }
+
+        .country-picker-selected {
+            background: var(--bg-secondary);
+            border: 1px solid var(--grid-color);
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            min-height: 40px;
+            cursor: pointer;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            max-width: 500px;
+            transition: all 0.2s ease;
+        }
+
+        .country-picker-selected:hover {
+            border-color: var(--accent-cool);
+        }
+
+        .country-tag {
+            background: var(--accent-cool);
+            color: var(--bg-primary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .country-tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .country-tag-remove:hover {
+            opacity: 1;
+        }
+
+        .country-picker-placeholder {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .country-picker-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--grid-color);
+            border-radius: 6px;
+            margin-top: 0.5rem;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 8px 32px var(--shadow);
+        }
+
+        .country-picker-dropdown.active {
+            display: block;
+        }
+
+        .country-picker-search {
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--grid-color);
+        }
+
+        .country-picker-search input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--grid-color);
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .country-picker-option {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .country-picker-option:hover {
+            background: var(--bg-card);
+        }
+
+        .country-picker-option.selected {
+            background: rgba(78, 205, 196, 0.1);
+        }
+
+        .country-picker-checkbox {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--grid-color);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .country-picker-option.selected .country-picker-checkbox {
+            background: var(--accent-cool);
+            border-color: var(--accent-cool);
+        }
+
+        .country-picker-checkbox::after {
+            content: '✓';
+            color: var(--bg-primary);
+            font-size: 0.75rem;
+            display: none;
+        }
+
+        .country-picker-option.selected .country-picker-checkbox::after {
+            display: block;
+        }
+
+        svg {
+            overflow: visible;
+        }
+
+        .axis path,
+        .axis line {
+            stroke: var(--grid-color);
+            shape-rendering: crispEdges;
+        }
+
+        .axis text {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            fill: var(--text-secondary);
+        }
+
+        .grid line {
+            stroke: var(--grid-color);
+            stroke-opacity: 0.3;
+            stroke-dasharray: 2, 2;
+        }
+
+        .grid path {
+            stroke-width: 0;
+        }
+
+        .line {
+            fill: none;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: all 0.2s ease;
+        }
+
+        .line:hover {
+            stroke-width: 3.5;
+            filter: drop-shadow(0 0 8px currentColor);
+        }
+
+        .tooltip {
+            position: absolute;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            border: 1px solid var(--grid-color);
+            box-shadow: 0 4px 16px var(--shadow);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            line-height: 1.6;
+            z-index: 1000;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .legend {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--grid-color);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            opacity: 1;
+            transition: opacity 0.2s ease;
+        }
+
+        .legend-item.disabled {
+            opacity: 0.3;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .legend-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container.full-width {
+                grid-column: 1;
+            }
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: var(--text-secondary);
+            font-family: 'DM Mono', monospace;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chart-container {
+            animation: fadeIn 0.6s ease forwards;
+            opacity: 0;
+        }
+
+        .chart-container:nth-child(1) { animation-delay: 0.1s; }
+        .chart-container:nth-child(2) { animation-delay: 0.2s; }
+        .chart-container:nth-child(3) { animation-delay: 0.3s; }
+        .chart-container:nth-child(4) { animation-delay: 0.4s; }
+        .chart-container:nth-child(5) { animation-delay: 0.5s; }
+        .chart-container:nth-child(6) { animation-delay: 0.6s; }
+
+        .file-upload-section {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .file-upload-container {
+            background: var(--bg-card);
+            border: 2px dashed var(--grid-color);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-container:hover {
+            border-color: var(--accent-cool);
+        }
+
+        .file-upload-container input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            cursor: pointer;
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: var(--accent-cool);
+            color: var(--bg-primary);
+            border-radius: 6px;
+            font-family: 'DM Mono', monospace;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .file-upload-label:hover {
+            background: var(--accent-warm);
+            transform: translateY(-2px);
+        }
+
+        .file-upload-info {
+            margin-top: 1rem;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .data-status {
+            margin-top: 1rem;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--accent-cool);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Global Climate & Emissions Dashboard</h1>
+        <p class="subtitle">Interactive Analysis of CO₂ and Greenhouse Gas Data</p>
+    </div>
+
+    <div class="file-upload-section">
+        <div class="file-upload-container">
+            <input type="file" id="csvFileInput" accept=".csv">
+            <label for="csvFileInput" class="file-upload-label">Upload greenhouse_emission_co2.csv</label>
+            <div class="file-upload-info">
+                Select your CSV file to load the data
+            </div>
+            <div class="data-status" id="dataStatus"></div>
+        </div>
+    </div>
+
+    <div class="dashboard" id="dashboard" style="display: none;">
+        <!-- Chart 1: CO₂ Trend Over Time -->
+        <div class="chart-container full-width">
+            <h2 class="chart-title">CO₂ Emissions Trajectory</h2>
+            <p class="chart-description">Compare total CO₂ emissions trends across countries over time</p>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Select Countries (Click to add/remove)</label>
+                    <div class="country-picker">
+                        <div class="country-picker-selected" id="countryPickerSelected">
+                            <span class="country-picker-placeholder">Click to select countries...</span>
+                        </div>
+                        <div class="country-picker-dropdown" id="countryPickerDropdown">
+                            <div class="country-picker-search">
+                                <input type="text" id="countrySearch" placeholder="Search countries...">
+                            </div>
+                            <div id="countryOptions"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-group year-range-group">
+                    <div class="control-group">
+                        <label>From Year</label>
+                        <input type="number" id="yearFrom" min="1975" max="2024" value="2000">
+                    </div>
+                    <div class="control-group">
+                        <label>To Year</label>
+                        <input type="number" id="yearTo" min="1975" max="2024" value="2024">
+                    </div>
+                </div>
+            </div>
+            <div id="chart1"></div>
+            <div id="legend1" class="legend"></div>
+        </div>
+
+        <!-- Chart 2: Per-Capita CO₂ Ranking -->
+        <div class="chart-container">
+            <h2 class="chart-title">Per Capita Emissions Ranking</h2>
+            <p class="chart-description">Top 15 countries by CO₂ emissions per person</p>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Year</label>
+                    <input type="range" id="year-slider-2" min="1975" max="2024" value="2022" step="1">
+                    <span class="year-display" id="year-display-2">2022</span>
+                </div>
+            </div>
+            <div id="chart2"></div>
+        </div>
+
+        <!-- Chart 3: GDP vs CO₂ Bubble Chart -->
+        <div class="chart-container">
+            <h2 class="chart-title">Economic Growth vs Emissions</h2>
+            <p class="chart-description">Decoupling analysis: GDP, CO₂, and population</p>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Year</label>
+                    <input type="range" id="year-slider-3" min="1975" max="2024" value="2022" step="1">
+                    <span class="year-display" id="year-display-3">2022</span>
+                </div>
+            </div>
+            <div id="chart3"></div>
+        </div>
+
+        <!-- Chart 4: Emissions by Source (Stacked Area) -->
+        <div class="chart-container full-width">
+            <h2 class="chart-title">Energy Source Composition</h2>
+            <p class="chart-description">Breakdown of emissions by fuel type and industrial sources</p>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Country</label>
+                    <select id="country-selector-4"></select>
+                </div>
+            </div>
+            <div id="chart4"></div>
+            <div id="legend4" class="legend"></div>
+        </div>
+
+        <!-- Chart 5: Land-Use Change Impact -->
+        <div class="chart-container">
+            <h2 class="chart-title">Land-Use Change Impact</h2>
+            <p class="chart-description">Emissions with vs without land-use change</p>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Year</label>
+                    <input type="range" id="year-slider-5" min="1975" max="2024" value="2022" step="1">
+                    <span class="year-display" id="year-display-5">2022</span>
+                </div>
+            </div>
+            <div id="chart5"></div>
+        </div>
+
+        <!-- Chart 6: GHG Composition -->
+        <div class="chart-container">
+            <h2 class="chart-title">Greenhouse Gas Composition</h2>
+            <p class="chart-description">Methane and nitrous oxide trends beyond CO₂</p>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Country</label>
+                    <select id="country-selector-6"></select>
+                </div>
+            </div>
+            <div id="chart6"></div>
+            <div id="legend6" class="legend"></div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        let globalData = [];
+        let selectedCountries = [];
+        let allCountries = [];
+
+        // Color scheme
+        const colorScale = d3.scaleOrdinal(d3.schemeTableau10);
+
+        // File upload handler
+        document.getElementById('csvFileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const csv = e.target.result;
+                    globalData = d3.csvParse(csv, d => {
+                        return {
+                            country: d.country,
+                            year: +d.year,
+                            iso_code: d.iso_code,
+                            population: +d.population || 0,
+                            gdp: +d.gdp || 0,
+                            co2: +d.co2 || 0,
+                            co2_per_capita: +d.co2_per_capita || 0,
+                            coal_co2: +d.coal_co2 || 0,
+                            oil_co2: +d.oil_co2 || 0,
+                            gas_co2: +d.gas_co2 || 0,
+                            cement_co2: +d.cement_co2 || 0,
+                            flaring_co2: +d.flaring_co2 || 0,
+                            other_industry_co2: +d.other_industry_co2 || 0,
+                            co2_including_luc: +d.co2_including_luc || 0,
+                            land_use_change_co2: +d.land_use_change_co2 || 0,
+                            methane: +d.methane || 0,
+                            nitrous_oxide: +d.nitrous_oxide || 0,
+                            total_ghg: +d.total_ghg || 0
+                        };
+                    });
+
+                    // Get unique countries
+                    allCountries = [...new Set(globalData.map(d => d.country))].sort();
+                    
+                    // Initialize with some default countries
+                    const defaultCountries = ['United States', 'China', 'India', 'Germany', 'United Kingdom'];
+                    selectedCountries = defaultCountries.filter(c => allCountries.includes(c));
+                    
+                    if (selectedCountries.length === 0 && allCountries.length > 0) {
+                        selectedCountries = allCountries.slice(0, 5);
+                    }
+
+                    document.getElementById('dataStatus').textContent = 
+                        `✓ Loaded ${globalData.length} records from ${allCountries.length} countries`;
+                    document.getElementById('dashboard').style.display = 'grid';
+                    
+                    initializeCountryPicker();
+                    populateCountrySelectors();
+                    initializeCharts();
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Country picker functions
+        function initializeCountryPicker() {
+            const selected = document.getElementById('countryPickerSelected');
+            const dropdown = document.getElementById('countryPickerDropdown');
+            const search = document.getElementById('countrySearch');
+            const optionsContainer = document.getElementById('countryOptions');
+
+            // Toggle dropdown
+            selected.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('active');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', () => {
+                dropdown.classList.remove('active');
+            });
+
+            dropdown.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            // Search functionality
+            search.addEventListener('input', () => {
+                renderCountryOptions(search.value.toLowerCase());
+            });
+
+            // Initial render
+            renderCountryOptions();
+            updateSelectedDisplay();
+        }
+
+        function renderCountryOptions(searchTerm = '') {
+            const optionsContainer = document.getElementById('countryOptions');
+            optionsContainer.innerHTML = '';
+
+            const filtered = allCountries.filter(country => 
+                country.toLowerCase().includes(searchTerm)
+            );
+
+            filtered.forEach(country => {
+                const option = document.createElement('div');
+                option.className = 'country-picker-option';
+                if (selectedCountries.includes(country)) {
+                    option.classList.add('selected');
+                }
+
+                option.innerHTML = `
+                    <div class="country-picker-checkbox"></div>
+                    <span>${country}</span>
+                `;
+
+                option.addEventListener('click', () => {
+                    toggleCountry(country);
+                });
+
+                optionsContainer.appendChild(option);
+            });
+        }
+
+        function toggleCountry(country) {
+            const index = selectedCountries.indexOf(country);
+            if (index > -1) {
+                selectedCountries.splice(index, 1);
+            } else {
+                selectedCountries.push(country);
+            }
+            updateSelectedDisplay();
+            renderCountryOptions(document.getElementById('countrySearch').value.toLowerCase());
+            updateChart1();
+        }
+
+        function updateSelectedDisplay() {
+            const selected = document.getElementById('countryPickerSelected');
+            selected.innerHTML = '';
+
+            if (selectedCountries.length === 0) {
+                selected.innerHTML = '<span class="country-picker-placeholder">Click to select countries...</span>';
+            } else {
+                selectedCountries.forEach(country => {
+                    const tag = document.createElement('div');
+                    tag.className = 'country-tag';
+                    tag.innerHTML = `
+                        <span>${country}</span>
+                        <span class="country-tag-remove">×</span>
+                    `;
+                    tag.querySelector('.country-tag-remove').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleCountry(country);
+                    });
+                    selected.appendChild(tag);
+                });
+            }
+        }
+
+        function populateCountrySelectors() {
+            const selector4 = document.getElementById('country-selector-4');
+            const selector6 = document.getElementById('country-selector-6');
+
+            [selector4, selector6].forEach(selector => {
+                selector.innerHTML = '';
+                allCountries.forEach(country => {
+                    const option = document.createElement('option');
+                    option.value = country;
+                    option.textContent = country;
+                    selector.appendChild(option);
+                });
+                // Set default to first country or World if available
+                if (allCountries.includes('World')) {
+                    selector.value = 'World';
+                } else {
+                    selector.value = allCountries[0];
+                }
+            });
+        }
+
+        // Tooltip functions
+        function showTooltip(event, html) {
+            const tooltip = d3.select('#tooltip');
+            tooltip.html(html)
+                .style('left', (event.pageX + 15) + 'px')
+                .style('top', (event.pageY - 15) + 'px')
+                .classed('visible', true);
+        }
+
+        function hideTooltip() {
+            d3.select('#tooltip').classed('visible', false);
+        }
+
+        // Chart 1: CO₂ Trend Over Time with Year Range Filter
+        function createChart1() {
+            const margin = {top: 20, right: 120, bottom: 50, left: 80};
+            const width = document.getElementById('chart1').clientWidth - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+
+            d3.select('#chart1').selectAll('*').remove();
+
+            const svg = d3.select('#chart1')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            // Store SVG reference for updates
+            createChart1.svg = svg;
+            createChart1.dimensions = { width, height, margin };
+
+            updateChart1();
+        }
+
+        function updateChart1() {
+            if (!createChart1.svg) return;
+
+            const svg = createChart1.svg;
+            const { width, height } = createChart1.dimensions;
+            
+            const yearFrom = +document.getElementById('yearFrom').value;
+            const yearTo = +document.getElementById('yearTo').value;
+
+            // Validate year range
+            if (yearFrom > yearTo) {
+                document.getElementById('yearFrom').value = yearTo;
+                return;
+            }
+
+            const filteredData = globalData.filter(d => 
+                selectedCountries.includes(d.country) &&
+                d.year >= yearFrom &&
+                d.year <= yearTo &&
+                d.co2 > 0
+            );
+
+            svg.selectAll('*').remove();
+
+            if (filteredData.length === 0) {
+                svg.append('text')
+                    .attr('x', width / 2)
+                    .attr('y', height / 2)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('No data available for selected criteria');
+                return;
+            }
+
+            const x = d3.scaleLinear()
+                .domain([yearFrom, yearTo])
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(filteredData, d => d.co2) * 1.1])
+                .range([height, 0]);
+
+            // Grid
+            svg.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-width).tickFormat(''));
+
+            // Axes
+            svg.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height})`)
+                .call(d3.axisBottom(x).tickFormat(d3.format('d')));
+
+            svg.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y).tickFormat(d => d.toFixed(0)));
+
+            // Lines
+            const line = d3.line()
+                .x(d => x(d.year))
+                .y(d => y(d.co2))
+                .curve(d3.curveMonotoneX);
+
+            selectedCountries.forEach((country, i) => {
+                const countryData = filteredData
+                    .filter(d => d.country === country)
+                    .sort((a, b) => a.year - b.year);
+                
+                if (countryData.length === 0) return;
+
+                const color = colorScale(i);
+
+                svg.append('path')
+                    .datum(countryData)
+                    .attr('class', 'line')
+                    .attr('d', line)
+                    .attr('stroke', color)
+                    .on('mouseover', function(event) {
+                        d3.select(this).attr('stroke-width', 3.5);
+                        showTooltip(event, `<strong>${country}</strong>`);
+                    })
+                    .on('mouseout', function() {
+                        d3.select(this).attr('stroke-width', 2.5);
+                        hideTooltip();
+                    });
+
+                // Interactive points
+                svg.selectAll(`.point-${i}`)
+                    .data(countryData)
+                    .enter()
+                    .append('circle')
+                    .attr('cx', d => x(d.year))
+                    .attr('cy', d => y(d.co2))
+                    .attr('r', 0)
+                    .attr('fill', color)
+                    .on('mouseover', function(event, d) {
+                        d3.select(this).attr('r', 5);
+                        showTooltip(event, `
+                            <strong>${country}</strong><br/>
+                            Year: ${d.year}<br/>
+                            CO₂: ${d.co2.toFixed(1)} Mt
+                        `);
+                    })
+                    .on('mouseout', function() {
+                        d3.select(this).attr('r', 0);
+                        hideTooltip();
+                    });
+            });
+
+            // Axis labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height + 40)
+                .attr('text-anchor', 'middle')
+                .style('font-family', 'DM Mono, monospace')
+                .style('font-size', '0.75rem')
+                .style('fill', 'var(--text-secondary)')
+                .text('Year');
+
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', -60)
+                .attr('text-anchor', 'middle')
+                .style('font-family', 'DM Mono, monospace')
+                .style('font-size', '0.75rem')
+                .style('fill', 'var(--text-secondary)')
+                .text('CO₂ Emissions (Mt)');
+
+            // Update legend
+            const legend = d3.select('#legend1');
+            legend.selectAll('*').remove();
+            
+            selectedCountries.forEach((country, i) => {
+                const item = legend.append('div')
+                    .attr('class', 'legend-item');
+                
+                item.append('div')
+                    .attr('class', 'legend-color')
+                    .style('background', colorScale(i));
+                
+                item.append('span')
+                    .attr('class', 'legend-label')
+                    .text(country);
+            });
+        }
+
+        // Chart 2: Per-Capita Ranking
+        function createChart2() {
+            const margin = {top: 20, right: 40, bottom: 50, left: 140};
+            const width = document.getElementById('chart2').clientWidth - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+
+            const svg = d3.select('#chart2')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            function update() {
+                const year = +document.getElementById('year-slider-2').value;
+                document.getElementById('year-display-2').textContent = year;
+
+                const yearData = globalData
+                    .filter(d => d.year === year && d.country !== 'World' && d.co2_per_capita > 0)
+                    .sort((a, b) => b.co2_per_capita - a.co2_per_capita)
+                    .slice(0, 15);
+
+                svg.selectAll('*').remove();
+
+                const x = d3.scaleLinear()
+                    .domain([0, d3.max(yearData, d => d.co2_per_capita) * 1.1])
+                    .range([0, width]);
+
+                const y = d3.scaleBand()
+                    .domain(yearData.map(d => d.country))
+                    .range([0, height])
+                    .padding(0.2);
+
+                // Bars
+                svg.selectAll('.bar')
+                    .data(yearData)
+                    .enter()
+                    .append('rect')
+                    .attr('class', 'bar')
+                    .attr('x', 0)
+                    .attr('y', d => y(d.country))
+                    .attr('width', d => x(d.co2_per_capita))
+                    .attr('height', y.bandwidth())
+                    .attr('fill', (d, i) => colorScale(i))
+                    .attr('rx', 4)
+                    .style('opacity', 0.9)
+                    .on('mouseover', function(event, d) {
+                        d3.select(this).style('opacity', 1);
+                        showTooltip(event, `
+                            <strong>${d.country}</strong><br/>
+                            Per Capita: ${d.co2_per_capita.toFixed(2)} t/person<br/>
+                            Total: ${d.co2.toFixed(1)} Mt
+                        `);
+                    })
+                    .on('mouseout', function() {
+                        d3.select(this).style('opacity', 0.9);
+                        hideTooltip();
+                    });
+
+                // Axes
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .call(d3.axisLeft(y));
+
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .attr('transform', `translate(0,${height})`)
+                    .call(d3.axisBottom(x));
+
+                svg.append('text')
+                    .attr('x', width / 2)
+                    .attr('y', height + 40)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.75rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('CO₂ per Capita (tonnes/person)');
+            }
+
+            document.getElementById('year-slider-2').addEventListener('input', update);
+            update();
+        }
+
+        // Chart 3: GDP vs CO₂ Bubble Chart
+        function createChart3() {
+            const margin = {top: 20, right: 40, bottom: 60, left: 80};
+            const width = document.getElementById('chart3').clientWidth - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+
+            const svg = d3.select('#chart3')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            function update() {
+                const year = +document.getElementById('year-slider-3').value;
+                document.getElementById('year-display-3').textContent = year;
+
+                const yearData = globalData
+                    .filter(d => d.year === year && d.country !== 'World' && d.gdp > 0 && d.co2 > 0);
+
+                svg.selectAll('*').remove();
+
+                if (yearData.length === 0) return;
+
+                const x = d3.scaleLog()
+                    .domain([d3.min(yearData, d => d.gdp), d3.max(yearData, d => d.gdp)])
+                    .range([0, width]);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(yearData, d => d.co2) * 1.1])
+                    .range([height, 0]);
+
+                const size = d3.scaleSqrt()
+                    .domain([0, d3.max(yearData, d => d.population)])
+                    .range([3, 30]);
+
+                // Grid
+                svg.append('g')
+                    .attr('class', 'grid')
+                    .call(d3.axisLeft(y).tickSize(-width).tickFormat(''));
+
+                // Bubbles
+                svg.selectAll('.bubble')
+                    .data(yearData)
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'bubble')
+                    .attr('cx', d => x(d.gdp))
+                    .attr('cy', d => y(d.co2))
+                    .attr('r', d => size(d.population))
+                    .attr('fill', (d, i) => colorScale(i))
+                    .attr('opacity', 0.7)
+                    .attr('stroke', '#fff')
+                    .attr('stroke-width', 1)
+                    .on('mouseover', function(event, d) {
+                        d3.select(this)
+                            .attr('opacity', 1)
+                            .attr('stroke-width', 2);
+                        showTooltip(event, `
+                            <strong>${d.country}</strong><br/>
+                            GDP: $${(d.gdp / 1e12).toFixed(2)}T<br/>
+                            CO₂: ${d.co2.toFixed(1)} Mt<br/>
+                            Population: ${(d.population / 1e6).toFixed(0)}M
+                        `);
+                    })
+                    .on('mouseout', function() {
+                        d3.select(this)
+                            .attr('opacity', 0.7)
+                            .attr('stroke-width', 1);
+                        hideTooltip();
+                    });
+
+                // Axes
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .attr('transform', `translate(0,${height})`)
+                    .call(d3.axisBottom(x).tickFormat(d => `$${(d / 1e12).toFixed(0)}T`));
+
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .call(d3.axisLeft(y));
+
+                // Labels
+                svg.append('text')
+                    .attr('x', width / 2)
+                    .attr('y', height + 45)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.75rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('GDP (Trillion USD, log scale)');
+
+                svg.append('text')
+                    .attr('transform', 'rotate(-90)')
+                    .attr('x', -height / 2)
+                    .attr('y', -60)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.75rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('CO₂ Emissions (Mt)');
+            }
+
+            document.getElementById('year-slider-3').addEventListener('input', update);
+            update();
+        }
+
+        // Chart 4: Stacked Area Chart
+        function createChart4() {
+            const margin = {top: 20, right: 40, bottom: 50, left: 80};
+            const width = document.getElementById('chart4').clientWidth - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+
+            const svg = d3.select('#chart4')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            const sources = ['coal_co2', 'oil_co2', 'gas_co2', 'cement_co2', 'flaring_co2', 'other_industry_co2'];
+            const sourceLabels = {
+                coal_co2: 'Coal',
+                oil_co2: 'Oil',
+                gas_co2: 'Gas',
+                cement_co2: 'Cement',
+                flaring_co2: 'Flaring',
+                other_industry_co2: 'Other Industry'
+            };
+
+            const sourceColors = d3.scaleOrdinal()
+                .domain(sources)
+                .range(['#2d3436', '#ff6b35', '#4ecdc4', '#95a5a6', '#f39c12', '#9b59b6']);
+
+            function update() {
+                const country = document.getElementById('country-selector-4').value;
+                const countryData = globalData
+                    .filter(d => d.country === country)
+                    .sort((a, b) => a.year - b.year);
+
+                svg.selectAll('*').remove();
+
+                if (countryData.length === 0) return;
+
+                const x = d3.scaleLinear()
+                    .domain(d3.extent(countryData, d => d.year))
+                    .range([0, width]);
+
+                const stack = d3.stack()
+                    .keys(sources)
+                    .order(d3.stackOrderNone)
+                    .offset(d3.stackOffsetNone);
+
+                const series = stack(countryData);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(series, layer => d3.max(layer, d => d[1])) * 1.1])
+                    .range([height, 0]);
+
+                const area = d3.area()
+                    .x(d => x(d.data.year))
+                    .y0(d => y(d[0]))
+                    .y1(d => y(d[1]))
+                    .curve(d3.curveMonotoneX);
+
+                // Grid
+                svg.append('g')
+                    .attr('class', 'grid')
+                    .call(d3.axisLeft(y).tickSize(-width).tickFormat(''));
+
+                // Areas
+                svg.selectAll('.area')
+                    .data(series)
+                    .enter()
+                    .append('path')
+                    .attr('class', 'area')
+                    .attr('d', area)
+                    .attr('fill', d => sourceColors(d.key))
+                    .attr('opacity', 0.8)
+                    .on('mouseover', function(event, d) {
+                        d3.select(this).attr('opacity', 1);
+                        showTooltip(event, `<strong>${sourceLabels[d.key]}</strong>`);
+                    })
+                    .on('mouseout', function() {
+                        d3.select(this).attr('opacity', 0.8);
+                        hideTooltip();
+                    });
+
+                // Axes
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .attr('transform', `translate(0,${height})`)
+                    .call(d3.axisBottom(x).tickFormat(d3.format('d')));
+
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .call(d3.axisLeft(y));
+
+                // Labels
+                svg.append('text')
+                    .attr('x', width / 2)
+                    .attr('y', height + 40)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.75rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('Year');
+
+                svg.append('text')
+                    .attr('transform', 'rotate(-90)')
+                    .attr('x', -height / 2)
+                    .attr('y', -60)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.75rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('CO₂ Emissions (Mt)');
+
+                // Legend
+                const legend = d3.select('#legend4');
+                legend.selectAll('*').remove();
+                
+                sources.forEach(source => {
+                    const item = legend.append('div')
+                        .attr('class', 'legend-item');
+                    
+                    item.append('div')
+                        .attr('class', 'legend-color')
+                        .style('background', sourceColors(source));
+                    
+                    item.append('span')
+                        .attr('class', 'legend-label')
+                        .text(sourceLabels[source]);
+                });
+            }
+
+            document.getElementById('country-selector-4').addEventListener('change', update);
+            update();
+        }
+
+        // Chart 5: Dumbbell Chart
+        function createChart5() {
+            const margin = {top: 20, right: 40, bottom: 50, left: 140};
+            const width = document.getElementById('chart5').clientWidth - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+
+            const svg = d3.select('#chart5')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            function update() {
+                const year = +document.getElementById('year-slider-5').value;
+                document.getElementById('year-display-5').textContent = year;
+
+                const yearData = globalData
+                    .filter(d => d.year === year && d.country !== 'World' && d.co2 > 0 && d.co2_including_luc > 0)
+                    .sort((a, b) => b.co2_including_luc - a.co2_including_luc)
+                    .slice(0, 12);
+
+                svg.selectAll('*').remove();
+
+                if (yearData.length === 0) return;
+
+                const x = d3.scaleLinear()
+                    .domain([0, d3.max(yearData, d => d.co2_including_luc) * 1.1])
+                    .range([0, width]);
+
+                const y = d3.scaleBand()
+                    .domain(yearData.map(d => d.country))
+                    .range([0, height])
+                    .padding(0.3);
+
+                // Lines
+                svg.selectAll('.line')
+                    .data(yearData)
+                    .enter()
+                    .append('line')
+                    .attr('x1', d => x(d.co2))
+                    .attr('x2', d => x(d.co2_including_luc))
+                    .attr('y1', d => y(d.country) + y.bandwidth() / 2)
+                    .attr('y2', d => y(d.country) + y.bandwidth() / 2)
+                    .attr('stroke', '#4ecdc4')
+                    .attr('stroke-width', 2);
+
+                // Circles excluding LUC
+                svg.selectAll('.circle-exclude')
+                    .data(yearData)
+                    .enter()
+                    .append('circle')
+                    .attr('cx', d => x(d.co2))
+                    .attr('cy', d => y(d.country) + y.bandwidth() / 2)
+                    .attr('r', 6)
+                    .attr('fill', '#ff6b35')
+                    .on('mouseover', function(event, d) {
+                        showTooltip(event, `
+                            <strong>${d.country}</strong><br/>
+                            Excluding LUC: ${d.co2.toFixed(1)} Mt
+                        `);
+                    })
+                    .on('mouseout', hideTooltip);
+
+                // Circles including LUC
+                svg.selectAll('.circle-include')
+                    .data(yearData)
+                    .enter()
+                    .append('circle')
+                    .attr('cx', d => x(d.co2_including_luc))
+                    .attr('cy', d => y(d.country) + y.bandwidth() / 2)
+                    .attr('r', 6)
+                    .attr('fill', '#4ecdc4')
+                    .on('mouseover', function(event, d) {
+                        showTooltip(event, `
+                            <strong>${d.country}</strong><br/>
+                            Including LUC: ${d.co2_including_luc.toFixed(1)} Mt<br/>
+                            Difference: +${(d.co2_including_luc - d.co2).toFixed(1)} Mt
+                        `);
+                    })
+                    .on('mouseout', hideTooltip);
+
+                // Axes
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .call(d3.axisLeft(y));
+
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .attr('transform', `translate(0,${height})`)
+                    .call(d3.axisBottom(x));
+
+                svg.append('text')
+                    .attr('x', width / 2)
+                    .attr('y', height + 40)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.75rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('CO₂ Emissions (Mt)');
+
+                // Mini legend
+                const legendY = -10;
+                svg.append('circle')
+                    .attr('cx', width - 180)
+                    .attr('cy', legendY)
+                    .attr('r', 5)
+                    .attr('fill', '#ff6b35');
+                svg.append('text')
+                    .attr('x', width - 170)
+                    .attr('y', legendY + 4)
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.7rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('Excluding LUC');
+
+                svg.append('circle')
+                    .attr('cx', width - 80)
+                    .attr('cy', legendY)
+                    .attr('r', 5)
+                    .attr('fill', '#4ecdc4');
+                svg.append('text')
+                    .attr('x', width - 70)
+                    .attr('y', legendY + 4)
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.7rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('Including LUC');
+            }
+
+            document.getElementById('year-slider-5').addEventListener('input', update);
+            update();
+        }
+
+        // Chart 6: GHG Composition
+        function createChart6() {
+            const margin = {top: 20, right: 120, bottom: 50, left: 80};
+            const width = document.getElementById('chart6').clientWidth - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+
+            const svg = d3.select('#chart6')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            const gases = ['methane', 'nitrous_oxide', 'total_ghg'];
+            const gasLabels = {
+                methane: 'Methane (CH₄)',
+                nitrous_oxide: 'Nitrous Oxide (N₂O)',
+                total_ghg: 'Total GHG'
+            };
+
+            const gasColors = d3.scaleOrdinal()
+                .domain(gases)
+                .range(['#ff6b35', '#4ecdc4', '#f7fff7']);
+
+            function update() {
+                const country = document.getElementById('country-selector-6').value;
+                const countryData = globalData
+                    .filter(d => d.country === country && (d.methane > 0 || d.nitrous_oxide > 0 || d.total_ghg > 0))
+                    .sort((a, b) => a.year - b.year);
+
+                svg.selectAll('*').remove();
+
+                if (countryData.length === 0) return;
+
+                const x = d3.scaleLinear()
+                    .domain(d3.extent(countryData, d => d.year))
+                    .range([0, width]);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(countryData, d => Math.max(d.methane, d.nitrous_oxide, d.total_ghg)) * 1.1])
+                    .range([height, 0]);
+
+                // Grid
+                svg.append('g')
+                    .attr('class', 'grid')
+                    .call(d3.axisLeft(y).tickSize(-width).tickFormat(''));
+
+                // Lines
+                const line = d3.line()
+                    .x(d => x(d.year))
+                    .curve(d3.curveMonotoneX);
+
+                gases.forEach(gas => {
+                    line.y(d => y(d[gas]));
+                    
+                    svg.append('path')
+                        .datum(countryData)
+                        .attr('class', 'line')
+                        .attr('d', line)
+                        .attr('stroke', gasColors(gas))
+                        .on('mouseover', function(event) {
+                            d3.select(this).attr('stroke-width', 3.5);
+                            showTooltip(event, `<strong>${gasLabels[gas]}</strong>`);
+                        })
+                        .on('mouseout', function() {
+                            d3.select(this).attr('stroke-width', 2.5);
+                            hideTooltip();
+                        });
+                });
+
+                // Axes
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .attr('transform', `translate(0,${height})`)
+                    .call(d3.axisBottom(x).tickFormat(d3.format('d')));
+
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .call(d3.axisLeft(y));
+
+                // Labels
+                svg.append('text')
+                    .attr('x', width / 2)
+                    .attr('y', height + 40)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.75rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('Year');
+
+                svg.append('text')
+                    .attr('transform', 'rotate(-90)')
+                    .attr('x', -height / 2)
+                    .attr('y', -60)
+                    .attr('text-anchor', 'middle')
+                    .style('font-family', 'DM Mono, monospace')
+                    .style('font-size', '0.75rem')
+                    .style('fill', 'var(--text-secondary)')
+                    .text('Emissions (Mt CO₂e)');
+
+                // Legend
+                const legend = d3.select('#legend6');
+                legend.selectAll('*').remove();
+                
+                gases.forEach(gas => {
+                    const item = legend.append('div')
+                        .attr('class', 'legend-item');
+                    
+                    item.append('div')
+                        .attr('class', 'legend-color')
+                        .style('background', gasColors(gas));
+                    
+                    item.append('span')
+                        .attr('class', 'legend-label')
+                        .text(gasLabels[gas]);
+                });
+            }
+
+            document.getElementById('country-selector-6').addEventListener('change', update);
+            update();
+        }
+
+        // Initialize all charts
+        function initializeCharts() {
+            createChart1();
+            createChart2();
+            createChart3();
+            createChart4();
+            createChart5();
+            createChart6();
+
+            // Add event listeners for year range filters on Chart 1
+            document.getElementById('yearFrom').addEventListener('change', updateChart1);
+            document.getElementById('yearTo').addEventListener('change', updateChart1);
+        }
+    </script>
+</body>
+</html>

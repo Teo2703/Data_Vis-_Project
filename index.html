@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Global Climate & Emissions Dashboard</title>
+
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+  <div class="header">
+    <h1>Global Climate & Emissions Dashboard</h1>
+    <p class="subtitle">Interactive Analysis of CO₂ and Greenhouse Gas Data</p>
+  </div>
+
+  <!-- Dashboard is visible immediately -->
+  <div class="dashboard" id="dashboard">
+    <!-- Chart 1 -->
+    <div class="chart-container full-width">
+      <h2 class="chart-title">CO₂ Emissions Trajectory</h2>
+      <p class="chart-description">Compare total CO₂ emissions trends across countries over time</p>
+
+      <div class="controls">
+        <div class="control-group">
+          <label>Select Countries (Click to add/remove)</label>
+          <div class="country-picker">
+            <div class="country-picker-selected" id="countryPickerSelected">
+              <span class="country-picker-placeholder">Click to select countries...</span>
+            </div>
+            <div class="country-picker-dropdown" id="countryPickerDropdown">
+              <div class="country-picker-search">
+                <input type="text" id="countrySearch" placeholder="Search countries..." />
+              </div>
+              <div id="countryOptions"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-group year-range-group">
+          <div class="control-group">
+            <label>From Year</label>
+            <input type="number" id="yearFrom" />
+          </div>
+          <div class="control-group">
+            <label>To Year</label>
+            <input type="number" id="yearTo" />
+          </div>
+        </div>
+      </div>
+
+      <div id="chart1"></div>
+      <div id="legend1" class="legend"></div>
+    </div>
+
+    <!-- Chart 2 -->
+    <div class="chart-container">
+      <h2 class="chart-title">Per Capita Emissions Ranking</h2>
+      <p class="chart-description">Top 15 countries by CO₂ emissions per person</p>
+
+      <div class="controls">
+        <div class="control-group">
+          <label>Year</label>
+          <input type="range" id="year-slider-2" step="1" />
+          <span class="year-display" id="year-display-2"></span>
+        </div>
+      </div>
+
+      <div id="chart2"></div>
+    </div>
+
+    <!-- Chart 3 -->
+    <div class="chart-container">
+      <h2 class="chart-title">Economic Growth vs Emissions</h2>
+      <p class="chart-description">Decoupling analysis: GDP, CO₂, and population</p>
+
+      <div class="controls">
+        <div class="control-group">
+          <label>Year</label>
+          <input type="range" id="year-slider-3" step="1" />
+          <span class="year-display" id="year-display-3"></span>
+        </div>
+      </div>
+
+      <div id="chart3"></div>
+    </div>
+
+    <!-- Chart 4 -->
+    <div class="chart-container full-width">
+      <h2 class="chart-title">Energy Source Composition</h2>
+      <p class="chart-description">Breakdown of emissions by fuel type and industrial sources</p>
+
+      <div class="controls">
+        <div class="control-group">
+          <label>Country</label>
+          <select id="country-selector-4"></select>
+        </div>
+      </div>
+
+      <div id="chart4"></div>
+      <div id="legend4" class="legend"></div>
+    </div>
+
+    <!-- Chart 5 -->
+    <div class="chart-container">
+      <h2 class="chart-title">Land-Use Change Impact</h2>
+      <p class="chart-description">Emissions with vs without land-use change</p>
+
+      <div class="controls">
+        <div class="control-group">
+          <label>Year</label>
+          <input type="range" id="year-slider-5" step="1" />
+          <span class="year-display" id="year-display-5"></span>
+        </div>
+      </div>
+
+      <div id="chart5"></div>
+    </div>
+
+    <!-- Chart 6 -->
+    <div class="chart-container">
+      <h2 class="chart-title">Greenhouse Gas Composition</h2>
+      <p class="chart-description">Methane and nitrous oxide trends beyond CO₂</p>
+
+      <div class="controls">
+        <div class="control-group">
+          <label>Country</label>
+          <select id="country-selector-6"></select>
+        </div>
+      </div>
+
+      <div id="chart6"></div>
+      <div id="legend6" class="legend"></div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
