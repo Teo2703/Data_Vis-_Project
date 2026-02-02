@@ -17,6 +17,22 @@
 
   <!-- Dashboard is visible immediately -->
   <div class="dashboard" id="dashboard">
+    <!-- Production vs Consumption Toggle -->
+    <div class="emission-type-toggle-container">
+      <h3>Emission Accounting Method</h3>
+      <div class="toggle-switch">
+        <button id="btn-production" class="toggle-btn active">
+          Production-Based CO₂
+        </button>
+        <button id="btn-consumption" class="toggle-btn">
+          Consumption-Based CO₂
+        </button>
+      </div>
+      <p class="toggle-description" id="toggle-description">
+        Showing emissions from domestic production (territorial emissions)
+      </p>
+    </div>
+
     <!-- Chart 1 -->
     <div class="chart-container full-width">
       <h2 class="chart-title">CO₂ Emissions Trajectory</h2>
@@ -71,15 +87,40 @@
     </div>
 
     <!-- Chart 3 -->
-    <div class="chart-container">
+    <div class="chart-container full-width">
       <h2 class="chart-title">Economic Growth vs Emissions</h2>
-      <p class="chart-description">Decoupling analysis: GDP, CO₂, and population</p>
+      <p class="chart-description" id="chart3-description">Explore the relationship between GDP and CO₂ emissions</p>
 
       <div class="controls">
         <div class="control-group">
+          <label>View Mode</label>
+          <div class="view-toggle">
+            <button id="btn-bubble-view" class="view-toggle-btn active">Bubble View</button>
+            <button id="btn-path-view" class="view-toggle-btn">Path Tracing</button>
+          </div>
+        </div>
+
+        <!-- Bubble View Controls -->
+        <div id="bubble-controls" class="control-group">
           <label>Year</label>
           <input type="range" id="year-slider-3" step="1" />
           <span class="year-display" id="year-display-3"></span>
+        </div>
+
+        <!-- Path Tracing Controls -->
+        <div id="path-controls" style="display: none;">
+          <div class="control-group">
+            <label>Select Countries</label>
+            <select id="country-selector-3" multiple size="6"></select>
+          </div>
+          <div class="control-group">
+            <label>From Year</label>
+            <input type="number" id="trace-year-from" />
+          </div>
+          <div class="control-group">
+            <label>To Year</label>
+            <input type="number" id="trace-year-to" />
+          </div>
         </div>
       </div>
 

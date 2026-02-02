@@ -112,6 +112,103 @@ h1 {
   line-height: 1.6;
 }
 
+/* Emission Type Toggle */
+.emission-type-toggle-container {
+  background: var(--bg-card);
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+  text-align: center;
+  border: 1px solid var(--grid-color);
+  grid-column: 1 / -1;
+  box-shadow: 0 8px 32px var(--shadow);
+}
+
+.emission-type-toggle-container h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.toggle-switch {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.toggle-btn {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid var(--grid-color);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.toggle-btn:hover {
+  border-color: var(--accent-cool);
+  background: rgba(78, 205, 196, 0.1);
+}
+
+.toggle-btn.active {
+  background: var(--accent-cool);
+  border-color: var(--accent-cool);
+  color: var(--bg-primary);
+}
+
+.toggle-description {
+  margin: 0.5rem 0 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* Chart 3 View Toggle */
+.view-toggle {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-secondary);
+  padding: 0.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--grid-color);
+}
+
+.view-toggle-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.view-toggle-btn:hover {
+  background: rgba(78, 205, 196, 0.1);
+  color: var(--accent-cool);
+}
+
+.view-toggle-btn.active {
+  background: var(--accent-cool);
+  color: var(--bg-primary);
+}
+
+#path-controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 /* Controls */
 .controls {
   display: flex;
@@ -178,6 +275,23 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 input[type="number"] { width: 90px; }
+
+select[multiple] {
+  min-width: 200px;
+  padding: 0.25rem;
+  height: auto;
+}
+
+select[multiple] option {
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin: 2px 0;
+}
+
+select[multiple] option:checked {
+  background: var(--accent-cool);
+  color: var(--bg-primary);
+}
 
 .year-display {
   font-family: 'DM Mono', monospace;

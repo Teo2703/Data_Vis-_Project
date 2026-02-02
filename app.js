@@ -1,6 +1,8 @@
 let globalData = [];
 let selectedCountries = [];
 let allCountries = [];
+let emissionType = 'production'; // 'production' or 'consumption'
+let chart3ViewMode = 'bubble'; // 'bubble' or 'path'
 
 // Consistent colors by country across all charts
 let colorByCountry = d3.scaleOrdinal(d3.schemeTableau10);
@@ -27,6 +29,8 @@ d3.csv("greenhouse_emission_co2.csv", d => ({
   gdp: +d.gdp || 0,
   co2: +d.co2 || 0,
   co2_per_capita: +d.co2_per_capita || 0,
+  consumption_co2: +d.consumption_co2 || 0,
+  consumption_co2_per_capita: +d.consumption_co2_per_capita || 0,
   coal_co2: +d.coal_co2 || 0,
   oil_co2: +d.oil_co2 || 0,
   gas_co2: +d.gas_co2 || 0,
@@ -58,6 +62,7 @@ d3.csv("greenhouse_emission_co2.csv", d => ({
   setupYearControls(minYear, maxYear);
   initializeCountryPicker();
   populateCountrySelectors();
+  initializeToggle();
   initializeCharts();
 
   window.addEventListener("resize", () => {
@@ -101,6 +106,14 @@ function setupYearControls(minYear, maxYear) {
   document.getElementById("year-display-2").textContent = s2.value;
   document.getElementById("year-display-3").textContent = s3.value;
   document.getElementById("year-display-5").textContent = s5.value;
+
+  // Chart 3 trace year controls
+  const traceFrom = document.getElementById("trace-year-from");
+  const traceTo = document.getElementById("trace-year-to");
+  traceFrom.min = minYear; traceFrom.max = maxYear;
+  traceTo.min = minYear; traceTo.max = maxYear;
+  traceFrom.value = Math.max(minYear, maxYear - 20);
+  traceTo.value = maxYear;
 }
 
 // =====================
@@ -185,8 +198,23 @@ function updateSelectedDisplay() {
 }
 
 function populateCountrySelectors() {
+  const selector3 = document.getElementById("country-selector-3");
   const selector4 = document.getElementById("country-selector-4");
   const selector6 = document.getElementById("country-selector-6");
+
+  // Multi-select for Chart 3 (path tracing)
+  selector3.innerHTML = "";
+  const defaultTraceCountries = ["United States", "China", "Sweden", "India", "Germany"];
+  allCountries.forEach(country => {
+    if (country === "World") return;
+    const option = document.createElement("option");
+    option.value = country;
+    option.textContent = country;
+    if (defaultTraceCountries.includes(country)) {
+      option.selected = true;
+    }
+    selector3.appendChild(option);
+  });
 
   [selector4, selector6].forEach(selector => {
     selector.innerHTML = "";
@@ -202,11 +230,94 @@ function populateCountrySelectors() {
 }
 
 // =====================
+// Toggle for Production/Consumption
+// =====================
+function initializeToggle() {
+  document.getElementById('btn-production').addEventListener('click', () => {
+    emissionType = 'production';
+    updateToggleState();
+    refreshChartsForToggle();
+  });
+
+  document.getElementById('btn-consumption').addEventListener('click', () => {
+    emissionType = 'consumption';
+    updateToggleState();
+    refreshChartsForToggle();
+  });
+}
+
+function updateToggleState() {
+  document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = emissionType === 'production' ? 'btn-production' : 'btn-consumption';
+  document.getElementById(activeBtn).classList.add('active');
+  
+  const description = emissionType === 'production' 
+    ? 'Showing emissions from domestic production (territorial emissions)'
+    : 'Showing emissions from goods consumed (imports included, exports excluded)';
+  document.getElementById('toggle-description').textContent = description;
+}
+
+function refreshChartsForToggle() {
+  updateChart1();
+  createChart2();
+  createChart3();
+}
+
+// Helper to get the correct CO2 value based on emission type
+function getCO2Value(d) {
+  return emissionType === 'production' ? d.co2 : d.consumption_co2;
+}
+
+function getCO2PerCapitaValue(d) {
+  return emissionType === 'production' ? d.co2_per_capita : d.consumption_co2_per_capita;
+}
+
+// =====================
+// Chart 3 View Toggle
+// =====================
+function initializeChart3Toggle() {
+  document.getElementById('btn-bubble-view').addEventListener('click', () => {
+    chart3ViewMode = 'bubble';
+    updateChart3ViewToggle();
+    createChart3();
+  });
+
+  document.getElementById('btn-path-view').addEventListener('click', () => {
+    chart3ViewMode = 'path';
+    updateChart3ViewToggle();
+    createChart3();
+  });
+}
+
+function updateChart3ViewToggle() {
+  const bubbleBtn = document.getElementById('btn-bubble-view');
+  const pathBtn = document.getElementById('btn-path-view');
+  const bubbleControls = document.getElementById('bubble-controls');
+  const pathControls = document.getElementById('path-controls');
+  const description = document.getElementById('chart3-description');
+
+  if (chart3ViewMode === 'bubble') {
+    bubbleBtn.classList.add('active');
+    pathBtn.classList.remove('active');
+    bubbleControls.style.display = 'flex';
+    pathControls.style.display = 'none';
+    description.textContent = 'Explore the relationship between GDP and CO₂ emissions (bubble size = population)';
+  } else {
+    bubbleBtn.classList.remove('active');
+    pathBtn.classList.add('active');
+    bubbleControls.style.display = 'none';
+    pathControls.style.display = 'flex';
+    description.textContent = 'Trace countries\' paths over time to see if they decoupled economic growth from emissions';
+  }
+}
+
+// =====================
 // Chart init
 // =====================
 function initializeCharts() {
   createChart1();
   createChart2();
+  initializeChart3Toggle();
   createChart3();
   createChart4();
   createChart5();
@@ -256,7 +367,7 @@ function updateChart1() {
   const filteredData = globalData.filter(d =>
     selectedCountries.includes(d.country) &&
     d.year >= yearFrom && d.year <= yearTo &&
-    d.co2 > 0
+    getCO2Value(d) > 0
   );
 
   svg.selectAll("*").remove();
@@ -274,7 +385,7 @@ function updateChart1() {
 
   const x = d3.scaleLinear().domain([yearFrom, yearTo]).range([0, width]);
   const y = d3.scaleLinear()
-    .domain([0, d3.max(filteredData, d => d.co2) * 1.1])
+    .domain([0, d3.max(filteredData, d => getCO2Value(d)) * 1.1])
     .range([height, 0]);
 
   svg.append("g")
@@ -292,7 +403,7 @@ function updateChart1() {
 
   const line = d3.line()
     .x(d => x(d.year))
-    .y(d => y(d.co2))
+    .y(d => y(getCO2Value(d)))
     .curve(d3.curveMonotoneX);
 
   selectedCountries.forEach((country) => {
@@ -317,12 +428,13 @@ function updateChart1() {
       .enter()
       .append("circle")
       .attr("cx", d => x(d.year))
-      .attr("cy", d => y(d.co2))
+      .attr("cy", d => y(getCO2Value(d)))
       .attr("r", 0)
       .attr("fill", color)
       .on("mouseover", function (event, d) {
         d3.select(this).attr("r", 5);
-        showTooltip(event, `<strong>${country}</strong><br/>Year: ${d.year}<br/>CO₂: ${d.co2.toFixed(1)} Mt`);
+        const emissionLabel = emissionType === 'production' ? 'Production CO₂' : 'Consumption CO₂';
+        showTooltip(event, `<strong>${country}</strong><br/>Year: ${d.year}<br/>${emissionLabel}: ${getCO2Value(d).toFixed(1)} Mt`);
       })
       .on("mouseout", function () {
         d3.select(this).attr("r", 0);
@@ -380,8 +492,8 @@ function createChart2() {
     document.getElementById("year-display-2").textContent = year;
 
     const yearData = globalData
-      .filter(d => d.year === year && d.country !== "World" && d.co2_per_capita > 0)
-      .sort((a, b) => b.co2_per_capita - a.co2_per_capita)
+      .filter(d => d.year === year && d.country !== "World" && getCO2PerCapitaValue(d) > 0)
+      .sort((a, b) => getCO2PerCapitaValue(b) - getCO2PerCapitaValue(a))
       .slice(0, 15);
 
     svg.selectAll("*").remove();
@@ -389,7 +501,7 @@ function createChart2() {
     if (yearData.length === 0) return;
 
     const x = d3.scaleLinear()
-      .domain([0, d3.max(yearData, d => d.co2_per_capita) * 1.1])
+      .domain([0, d3.max(yearData, d => getCO2PerCapitaValue(d)) * 1.1])
       .range([0, width]);
 
     const y = d3.scaleBand()
@@ -403,15 +515,16 @@ function createChart2() {
       .append("rect")
       .attr("x", 0)
       .attr("y", d => y(d.country))
-      .attr("width", d => x(d.co2_per_capita))
+      .attr("width", d => x(getCO2PerCapitaValue(d)))
       .attr("height", y.bandwidth())
       .attr("fill", d => getCountryColor(d.country))
       .attr("rx", 4)
       .style("opacity", 0.9)
       .on("mouseover", function (event, d) {
         d3.select(this).style("opacity", 1);
+        const emissionLabel = emissionType === 'production' ? 'Production' : 'Consumption';
         showTooltip(event,
-          `<strong>${d.country}</strong><br/>Per Capita: ${d.co2_per_capita.toFixed(2)} t/person<br/>Total: ${d.co2.toFixed(1)} Mt`
+          `<strong>${d.country}</strong><br/>${emissionLabel} Per Capita: ${getCO2PerCapitaValue(d).toFixed(2)} t/person<br/>Total: ${getCO2Value(d).toFixed(1)} Mt`
         );
       })
       .on("mouseout", function () {
@@ -438,32 +551,30 @@ function createChart2() {
 
 
 // =====================
-// Chart 3: GDP vs CO₂ Bubble Chart 
+// Chart 3: Economic Growth vs Emissions (Dual View)
 // =====================
 function createChart3() {
+  if (chart3ViewMode === 'bubble') {
+    createChart3Bubble();
+  } else {
+    createChart3PathTracing();
+  }
+}
+
+// Chart 3 - Bubble View
+function createChart3Bubble() {
   const margin = { top: 20, right: 40, bottom: 60, left: 80 };
   const container = document.getElementById("chart3");
 
-  const svgRoot = d3.select(container)
-    .append("svg");
+  d3.select(container).selectAll("*").remove();
 
-  const g = svgRoot.append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
-
-  function formatTrillions(v) {
-    const t = v / 1e12;
-    // show 1 decimal only when below 1T
-    return `$${t.toFixed(v < 1e12 ? 1 : 0)}T`;
-  }
+  const svgRoot = d3.select(container).append("svg");
+  const g = svgRoot.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
   function formatBillions(v) {
-  // Divide by 1e9 (1,000,000,000) for Billions
-  const b = v / 1e9;
-  
-  // Show 1 decimal place only when the value is below 1 Billion
-  // Otherwise, round to the nearest whole number
-  return `$${b.toFixed(v < 1e9 ? 1 : 0)}B`;
-}
+    const b = v / 1e9;
+    return `$${b.toFixed(v < 1e9 ? 1 : 0)}B`;
+  }
 
   function buildPowerOf10Ticks(scale) {
     const [minV, maxV] = scale.domain();
@@ -473,14 +584,18 @@ function createChart3() {
   }
 
   function update() {
-    // Clear only the plot group (keep the same SVG)
     g.selectAll("*").remove();
 
     const year = +document.getElementById("year-slider-3").value;
     document.getElementById("year-display-3").textContent = year;
 
-    const yearData = globalData
-      .filter(d => d.year === year && d.country !== "World" && d.gdp > 0 && d.co2 > 0);
+    const yearData = globalData.filter(d => 
+      d.year === year && 
+      d.country !== "World" && 
+      d.gdp > 0 && 
+      getCO2Value(d) > 0 &&
+      d.population > 0
+    );
 
     const width = container.clientWidth - margin.left - margin.right;
     const height = 500 - margin.top - margin.bottom;
@@ -500,44 +615,45 @@ function createChart3() {
       return;
     }
 
-    // ---- scales ----
+    // Scales
     const x = d3.scaleLog()
       .domain(d3.extent(yearData, d => d.gdp))
       .range([0, width])
       .nice();
 
     const y = d3.scaleLinear()
-      .domain([0, d3.max(yearData, d => d.co2) * 1.1])
+      .domain([0, d3.max(yearData, d => getCO2Value(d)) * 1.1])
       .range([height, 0]);
 
     const size = d3.scaleSqrt()
       .domain([0, d3.max(yearData, d => d.population)])
       .range([3, 30]);
 
-    // ---- grid ----
+    // Grid
     g.append("g")
       .attr("class", "grid")
       .call(d3.axisLeft(y).tickSize(-width).tickFormat(""));
 
-    // ---- bubbles ----
+    // Bubbles
     g.selectAll(".bubble")
-      .data(yearData, d => d.country) // key by country (stable binding)
+      .data(yearData, d => d.country)
       .enter()
       .append("circle")
       .attr("class", "bubble")
       .attr("cx", d => x(d.gdp))
-      .attr("cy", d => y(d.co2))
+      .attr("cy", d => y(getCO2Value(d)))
       .attr("r", d => size(d.population))
-      .attr("fill", d => getCountryColor(d.country)) // ✅ consistent by country
+      .attr("fill", d => getCountryColor(d.country))
       .attr("opacity", 0.7)
       .attr("stroke", "#fff")
       .attr("stroke-width", 1)
       .on("mouseover", function (event, d) {
         d3.select(this).attr("opacity", 1).attr("stroke-width", 2);
+        const emissionLabel = emissionType === 'production' ? 'Production CO₂' : 'Consumption CO₂';
         showTooltip(event, `
           <strong>${d.country}</strong><br/>
           GDP: ${formatBillions(d.gdp)}<br/>
-          CO₂: ${d.co2.toFixed(1)} Mt<br/>
+          ${emissionLabel}: ${getCO2Value(d).toFixed(1)} Mt<br/>
           Population: ${(d.population / 1e6).toFixed(0)}M
         `);
       })
@@ -546,7 +662,7 @@ function createChart3() {
         hideTooltip();
       });
 
-    // ---- axes (dynamic but fixed-style log ticks) ----
+    // Axes
     const logTicks = buildPowerOf10Ticks(x);
 
     g.append("g")
@@ -554,8 +670,8 @@ function createChart3() {
       .attr("transform", `translate(0,${height})`)
       .call(
         d3.axisBottom(x)
-          .tickValues(logTicks)              
-          .tickFormat(d => formatBillions(d)) 
+          .tickValues(logTicks)
+          .tickFormat(d => formatBillions(d))
           .tickSizeOuter(0)
       );
 
@@ -563,7 +679,9 @@ function createChart3() {
       .attr("class", "axis")
       .call(d3.axisLeft(y).ticks(6).tickSizeOuter(0));
 
-    // ---- labels ----
+    // Labels
+    const emissionLabel = emissionType === 'production' ? 'Production CO₂' : 'Consumption CO₂';
+
     g.append("text")
       .attr("x", width / 2)
       .attr("y", height + 45)
@@ -571,7 +689,7 @@ function createChart3() {
       .style("font-family", "DM Mono, monospace")
       .style("font-size", "0.75rem")
       .style("fill", "var(--text-secondary)")
-      .text("GDP (Trillion USD, log scale)");
+      .text("GDP (log scale)");
 
     g.append("text")
       .attr("transform", "rotate(-90)")
@@ -581,11 +699,234 @@ function createChart3() {
       .style("font-family", "DM Mono, monospace")
       .style("font-size", "0.75rem")
       .style("fill", "var(--text-secondary)")
-      .text("CO₂ Emissions (Mt)");
+      .text(`${emissionLabel} (Mt)`);
   }
 
-  // Wire slider
   document.getElementById("year-slider-3").addEventListener("input", update);
+  update();
+}
+
+// Chart 3 - Path Tracing View
+function createChart3PathTracing() {
+  const margin = { top: 40, right: 150, bottom: 60, left: 80 };
+  const container = document.getElementById("chart3");
+
+  d3.select(container).selectAll("*").remove();
+
+  const svgRoot = d3.select(container).append("svg");
+  const g = svgRoot.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+  function formatBillions(v) {
+    const b = v / 1e9;
+    return `$${b.toFixed(v < 1e9 ? 1 : 0)}B`;
+  }
+
+  function buildPowerOf10Ticks(scale) {
+    const [minV, maxV] = scale.domain();
+    const minPow = Math.floor(Math.log10(minV));
+    const maxPow = Math.ceil(Math.log10(maxV));
+    return d3.range(minPow, maxPow + 1).map(p => Math.pow(10, p));
+  }
+
+  function update() {
+    g.selectAll("*").remove();
+
+    const selectedCountries = Array.from(
+      document.getElementById('country-selector-3').selectedOptions
+    ).map(opt => opt.value);
+
+    const yearFrom = +document.getElementById("trace-year-from").value;
+    const yearTo = +document.getElementById("trace-year-to").value;
+
+    if (selectedCountries.length === 0) {
+      g.append("text")
+        .attr("x", 200)
+        .attr("y", 200)
+        .attr("text-anchor", "middle")
+        .style("font-family", "DM Mono, monospace")
+        .style("fill", "var(--text-secondary)")
+        .text("Please select at least one country");
+      return;
+    }
+
+    const traceData = globalData.filter(d => 
+      selectedCountries.includes(d.country) &&
+      d.year >= yearFrom && d.year <= yearTo &&
+      d.gdp > 0 && getCO2Value(d) > 0
+    );
+
+    if (traceData.length === 0) {
+      g.append("text")
+        .attr("x", 200)
+        .attr("y", 200)
+        .attr("text-anchor", "middle")
+        .style("font-family", "DM Mono, monospace")
+        .style("fill", "var(--text-secondary)")
+        .text("No data available for selected criteria");
+      return;
+    }
+
+    const width = container.clientWidth - margin.left - margin.right;
+    const height = 500 - margin.top - margin.bottom;
+
+    svgRoot
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom);
+
+    // Group data by country
+    const dataByCountry = d3.group(traceData, d => d.country);
+
+    // Scales
+    const x = d3.scaleLog()
+      .domain(d3.extent(traceData, d => d.gdp))
+      .range([0, width])
+      .nice();
+
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(traceData, d => getCO2Value(d)) * 1.1])
+      .range([height, 0]);
+
+    // Grid
+    g.append("g")
+      .attr("class", "grid")
+      .call(d3.axisLeft(y).tickSize(-width).tickFormat(""));
+
+    // Line generator
+    const line = d3.line()
+      .x(d => x(d.gdp))
+      .y(d => y(getCO2Value(d)))
+      .curve(d3.curveLinear);
+
+    // Draw paths for each country
+    dataByCountry.forEach((countryData, country) => {
+      const sorted = countryData.sort((a, b) => a.year - b.year);
+      const color = getCountryColor(country);
+
+      // Path
+      g.append("path")
+        .datum(sorted)
+        .attr("class", "trace-path")
+        .attr("d", line)
+        .attr("stroke", color)
+        .attr("stroke-width", 2.5)
+        .attr("fill", "none")
+        .attr("opacity", 0.8)
+        .on("mouseover", function() {
+          d3.select(this).attr("stroke-width", 4).attr("opacity", 1);
+        })
+        .on("mouseout", function() {
+          d3.select(this).attr("stroke-width", 2.5).attr("opacity", 0.8);
+        });
+
+      // Points at each year
+      g.selectAll(`.point-${country.replace(/\s+/g, "-")}`)
+        .data(sorted)
+        .enter()
+        .append("circle")
+        .attr("cx", d => x(d.gdp))
+        .attr("cy", d => y(getCO2Value(d)))
+        .attr("r", 4)
+        .attr("fill", color)
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 1.5)
+        .on("mouseover", function(event, d) {
+          d3.select(this).attr("r", 7);
+          const idx = sorted.indexOf(d);
+          const prev = idx > 0 ? sorted[idx - 1] : null;
+          
+          let tooltip = `<strong>${country} (${d.year})</strong><br/>
+            GDP: ${formatBillions(d.gdp)}<br/>
+            CO₂: ${getCO2Value(d).toFixed(1)} Mt`;
+          
+          if (prev) {
+            const gdpChange = ((d.gdp - prev.gdp) / prev.gdp * 100).toFixed(1);
+            const co2Change = ((getCO2Value(d) - getCO2Value(prev)) / getCO2Value(prev) * 100).toFixed(1);
+            tooltip += `<br/>GDP Change: ${gdpChange > 0 ? '+' : ''}${gdpChange}%`;
+            tooltip += `<br/>CO₂ Change: ${co2Change > 0 ? '+' : ''}${co2Change}%`;
+          }
+          
+          showTooltip(event, tooltip);
+        })
+        .on("mouseout", function() {
+          d3.select(this).attr("r", 4);
+          hideTooltip();
+        });
+
+      // Start label
+      const first = sorted[0];
+      g.append("text")
+        .attr("x", x(first.gdp) + 10)
+        .attr("y", y(getCO2Value(first)) - 5)
+        .text(`${country} (${first.year})`)
+        .attr("fill", color)
+        .style("font-size", "0.65rem")
+        .style("font-family", "DM Mono, monospace")
+        .style("font-weight", "600");
+
+      // End marker with arrow
+      const last = sorted[sorted.length - 1];
+      g.append("circle")
+        .attr("cx", x(last.gdp))
+        .attr("cy", y(getCO2Value(last)))
+        .attr("r", 6)
+        .attr("fill", color)
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 2);
+
+      g.append("text")
+        .attr("x", x(last.gdp) + 10)
+        .attr("y", y(getCO2Value(last)) + 4)
+        .text(`${last.year}`)
+        .attr("fill", color)
+        .style("font-size", "0.7rem")
+        .style("font-family", "DM Mono, monospace")
+        .style("font-weight", "700");
+    });
+
+    // Axes
+    const logTicks = buildPowerOf10Ticks(x);
+
+    g.append("g")
+      .attr("class", "axis")
+      .attr("transform", `translate(0,${height})`)
+      .call(
+        d3.axisBottom(x)
+          .tickValues(logTicks)
+          .tickFormat(d => formatBillions(d))
+          .tickSizeOuter(0)
+      );
+
+    g.append("g")
+      .attr("class", "axis")
+      .call(d3.axisLeft(y).ticks(6).tickSizeOuter(0));
+
+    // Labels
+    const emissionLabel = emissionType === 'production' ? 'Production CO₂' : 'Consumption CO₂';
+    
+    g.append("text")
+      .attr("x", width / 2)
+      .attr("y", height + 45)
+      .attr("text-anchor", "middle")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.75rem")
+      .style("fill", "var(--text-secondary)")
+      .text("GDP (log scale)");
+
+    g.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -height / 2)
+      .attr("y", -60)
+      .attr("text-anchor", "middle")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.75rem")
+      .style("fill", "var(--text-secondary)")
+      .text(`${emissionLabel} (Mt)`);
+  }
+
+  // Wire controls
+  document.getElementById("country-selector-3").addEventListener("change", update);
+  document.getElementById("trace-year-from").addEventListener("change", update);
+  document.getElementById("trace-year-to").addEventListener("change", update);
 
   // Initial render
   update();
