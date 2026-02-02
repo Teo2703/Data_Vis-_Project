@@ -665,10 +665,10 @@ function createChart4() {
 }
 
 // =====================
-// Chart 5: Dumbbell
+// Chart 5: Dumbbell - Continents and Income Groups
 // =====================
 function createChart5() {
-  const margin = { top: 20, right: 40, bottom: 50, left: 140 };
+  const margin = { top: 20, right: 40, bottom: 60, left: 200 };
   const width = document.getElementById("chart5").clientWidth - margin.left - margin.right;
   const height = 500 - margin.top - margin.bottom;
 
@@ -679,17 +679,45 @@ function createChart5() {
     .append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
+  // Define continents and income groups to display
+  const groupLabels = [
+    "Africa",
+    "Asia",
+    "Europe",
+    "North America",
+    "South America",
+    "Oceania",
+    "High-income countries",
+    "Upper-middle-income countries",
+    "Lower-middle-income countries",
+    "Low-income countries"
+  ];
+
   function update() {
     const year = +document.getElementById("year-slider-5").value;
     document.getElementById("year-display-5").textContent = year;
 
     const yearData = globalData
-      .filter(d => d.year === year && d.country !== "World" && d.co2 > 0 && d.co2_including_luc > 0)
-      .sort((a, b) => b.co2_including_luc - a.co2_including_luc)
-      .slice(0, 12);
+      .filter(d => 
+        d.year === year && 
+        groupLabels.includes(d.country) &&
+        d.co2 > 0 && 
+        d.co2_including_luc > 0
+      )
+      .sort((a, b) => b.co2_including_luc - a.co2_including_luc);
 
     svg.selectAll("*").remove();
-    if (yearData.length === 0) return;
+
+    if (yearData.length === 0) {
+      svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .style("font-family", "DM Mono, monospace")
+        .style("fill", "var(--text-secondary)")
+        .text("No data available for continents and income groups in this year");
+      return;
+    }
 
     const x = d3.scaleLinear()
       .domain([0, d3.max(yearData, d => d.co2_including_luc) * 1.1])
@@ -700,6 +728,7 @@ function createChart5() {
       .range([0, height])
       .padding(0.3);
 
+    // Lines connecting the dumbbells
     svg.selectAll(".link")
       .data(yearData)
       .enter()
@@ -711,6 +740,7 @@ function createChart5() {
       .attr("stroke", "#4ecdc4")
       .attr("stroke-width", 2);
 
+    // Circles excluding LUC
     svg.selectAll(".circle-exclude")
       .data(yearData)
       .enter()
@@ -724,6 +754,7 @@ function createChart5() {
       )
       .on("mouseout", hideTooltip);
 
+    // Circles including LUC
     svg.selectAll(".circle-include")
       .data(yearData)
       .enter()
@@ -739,8 +770,64 @@ function createChart5() {
       )
       .on("mouseout", hideTooltip);
 
-    svg.append("g").attr("class", "axis").call(d3.axisLeft(y));
-    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+    // Y-axis (left) - countries/regions
+    svg.append("g")
+      .attr("class", "axis")
+      .call(d3.axisLeft(y))
+      .selectAll("text")
+      .style("font-size", "0.68rem")
+      .style("text-anchor", "end");
+
+    // X-axis (bottom) - emissions with reduced tick density
+    svg.append("g")
+      .attr("class", "axis")
+      .attr("transform", `translate(0,${height})`)
+      .call(
+        d3.axisBottom(x)
+          .ticks(5)
+          .tickFormat(d => {
+            if (d >= 1000) return (d / 1000).toFixed(0) + "k";
+            return d.toFixed(0);
+          })
+      );
+
+    // X-axis label
+    svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", height + 45)
+      .attr("text-anchor", "middle")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.75rem")
+      .style("fill", "var(--text-secondary)")
+      .text("CO₂ Emissions (Mt)");
+
+    // Mini legend
+    const legendY = -15;
+    svg.append("circle")
+      .attr("cx", width - 200)
+      .attr("cy", legendY)
+      .attr("r", 5)
+      .attr("fill", "#ff6b35");
+    svg.append("text")
+      .attr("x", width - 188)
+      .attr("y", legendY + 4)
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.7rem")
+      .style("fill", "var(--text-secondary)")
+      .text("Excluding LUC");
+
+    svg.append("circle")
+      .attr("cx", width - 90)
+      .attr("cy", legendY)
+      .attr("r", 5)
+      .attr("fill", "#4ecdc4");
+    svg.append("text")
+      .attr("x", width - 78)
+      .attr("y", legendY + 4)
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.7rem")
+      .style("fill", "var(--text-secondary)")
+      .text("Including LUC");
   }
 
   document.getElementById("year-slider-5").addEventListener("input", update);
