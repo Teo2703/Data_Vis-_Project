@@ -456,6 +456,15 @@ function createChart3() {
     return `$${t.toFixed(v < 1e12 ? 1 : 0)}T`;
   }
 
+  function formatBillions(v) {
+  // Divide by 1e9 (1,000,000,000) for Billions
+  const b = v / 1e9;
+  
+  // Show 1 decimal place only when the value is below 1 Billion
+  // Otherwise, round to the nearest whole number
+  return `$${b.toFixed(v < 1e9 ? 1 : 0)}B`;
+}
+
   function buildPowerOf10Ticks(scale) {
     const [minV, maxV] = scale.domain();
     const minPow = Math.floor(Math.log10(minV));
@@ -527,7 +536,7 @@ function createChart3() {
         d3.select(this).attr("opacity", 1).attr("stroke-width", 2);
         showTooltip(event, `
           <strong>${d.country}</strong><br/>
-          GDP: ${formatTrillions(d.gdp)}<br/>
+          GDP: ${formatBillions(d.gdp)}<br/>
           CO₂: ${d.co2.toFixed(1)} Mt<br/>
           Population: ${(d.population / 1e6).toFixed(0)}M
         `);
@@ -546,7 +555,7 @@ function createChart3() {
       .call(
         d3.axisBottom(x)
           .tickValues(logTicks)              
-          .tickFormat(d => formatTrillions(d)) 
+          .tickFormat(d => formatBillions(d)) 
           .tickSizeOuter(0)
       );
 
