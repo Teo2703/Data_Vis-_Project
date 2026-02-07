@@ -480,6 +480,9 @@ function createChart2() {
   const width = document.getElementById("chart2").clientWidth - margin.left - margin.right;
   const height = 500 - margin.top - margin.bottom;
 
+  // FIXED: Clear existing chart before creating new one
+  d3.select("#chart2").selectAll("*").remove();
+
   const svg = d3.select("#chart2")
     .append("svg")
     .attr("width", width + margin.left + margin.right)
