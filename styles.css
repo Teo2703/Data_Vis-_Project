@@ -429,6 +429,7 @@ svg { overflow: visible; }
   stroke-linejoin: round;
 }
 
+
 /* Tooltip */
 .tooltip {
   position: absolute;

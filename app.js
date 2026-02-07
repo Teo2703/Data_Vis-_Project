@@ -558,14 +558,14 @@ function createChart2() {
 // =====================
 function createChart3() {
   if (chart3ViewMode === 'bubble') {
-    createChart3Bubble();
+    createChart3Scatter();
   } else {
     createChart3PathTracing();
   }
 }
 
-// Chart 3 - Bubble View
-function createChart3Bubble() {
+// Chart 3 - Scatter Plot View
+function createChart3Scatter() { // Renamed for clarity
   const margin = { top: 20, right: 40, bottom: 60, left: 80 };
   const container = document.getElementById("chart3");
 
@@ -596,8 +596,8 @@ function createChart3Bubble() {
       d.year === year && 
       d.country !== "World" && 
       d.gdp > 0 && 
-      getCO2Value(d) > 0 &&
-      d.population > 0
+      getCO2Value(d) > 0
+      // Population filter removed here
     );
 
     const width = container.clientWidth - margin.left - margin.right;
@@ -618,7 +618,7 @@ function createChart3Bubble() {
       return;
     }
 
-    // Scales
+    // --- Scales ---
     const x = d3.scaleLog()
       .domain(d3.extent(yearData, d => d.gdp))
       .range([0, width])
@@ -628,40 +628,37 @@ function createChart3Bubble() {
       .domain([0, d3.max(yearData, d => getCO2Value(d)) * 1.1])
       .range([height, 0]);
 
-    const size = d3.scaleSqrt()
-      .domain([0, d3.max(yearData, d => d.population)])
-      .range([3, 30]);
+    // Note: size scale removed
 
     // Grid
     g.append("g")
       .attr("class", "grid")
       .call(d3.axisLeft(y).tickSize(-width).tickFormat(""));
 
-    // Bubbles
-    g.selectAll(".bubble")
+    // --- Data Points (Scatter) ---
+    g.selectAll(".dot")
       .data(yearData, d => d.country)
       .enter()
       .append("circle")
-      .attr("class", "bubble")
+      .attr("class", "dot")
       .attr("cx", d => x(d.gdp))
       .attr("cy", d => y(getCO2Value(d)))
-      .attr("r", d => size(d.population))
+      .attr("r", 5) // Fixed radius for scatter plot
       .attr("fill", d => getCountryColor(d.country))
       .attr("opacity", 0.7)
       .attr("stroke", "#fff")
       .attr("stroke-width", 1)
       .on("mouseover", function (event, d) {
-        d3.select(this).attr("opacity", 1).attr("stroke-width", 2);
+        d3.select(this).attr("opacity", 1).attr("stroke-width", 2).attr("r", 7);
         const emissionLabel = emissionType === 'production' ? 'Production CO₂' : 'Consumption CO₂';
         showTooltip(event, `
           <strong>${d.country}</strong><br/>
           GDP: ${formatBillions(d.gdp)}<br/>
-          ${emissionLabel}: ${getCO2Value(d).toFixed(1)} Mt<br/>
-          Population: ${(d.population / 1e6).toFixed(0)}M
+          ${emissionLabel}: ${getCO2Value(d).toFixed(1)} Mt
         `);
       })
       .on("mouseout", function () {
-        d3.select(this).attr("opacity", 0.7).attr("stroke-width", 1);
+        d3.select(this).attr("opacity", 0.7).attr("stroke-width", 1).attr("r", 5);
         hideTooltip();
       });
 
