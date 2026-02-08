@@ -202,15 +202,19 @@ function populateCountrySelectors() {
   const selector4 = document.getElementById("country-selector-4");
   const selector6 = document.getElementById("country-selector-6");
 
-  // Multi-select for Chart 3 (path tracing)
+  // Single-select for Chart 3 (path tracing) - default to USA
   selector3.innerHTML = "";
-  const defaultTraceCountries = ["United States", "China", "Sweden", "India", "Germany"];
-  allCountries.forEach(country => {
-    if (country === "World") return;
+  // Filter countries to only include those with iso_code
+  const validCountries = allCountries.filter(country => {
+    const countryData = globalData.find(d => d.country === country && d.iso_code && d.iso_code.length === 3);
+    return countryData !== undefined;
+  });
+  
+  validCountries.forEach(country => {
     const option = document.createElement("option");
     option.value = country;
     option.textContent = country;
-    if (defaultTraceCountries.includes(country)) {
+    if (country === "United States") {
       option.selected = true;
     }
     selector3.appendChild(option);
@@ -592,13 +596,16 @@ function createChart3Scatter() { // Renamed for clarity
     const year = +document.getElementById("year-slider-3").value;
     document.getElementById("year-display-3").textContent = year;
 
-    const yearData = globalData.filter(d => 
-      d.year === year && 
-      d.country !== "World" && 
-      d.gdp > 0 && 
-      getCO2Value(d) > 0
-      // Population filter removed here
-    );
+    const yearData = globalData
+      .filter(d => 
+        d.year === year && 
+        d.iso_code && 
+        d.iso_code.length === 3 && // Only countries with 3-letter iso codes (excludes regions like "Asia")
+        d.gdp > 0 && 
+        getCO2Value(d) > 0
+      )
+      .sort((a, b) => b.gdp - a.gdp) // Sort by GDP descending
+      .slice(0, 20); // Take top 20 GDP countries
 
     const width = container.clientWidth - margin.left - margin.right;
     const height = 500 - margin.top - margin.bottom;
@@ -731,26 +738,24 @@ function createChart3PathTracing() {
   function update() {
     g.selectAll("*").remove();
 
-    const selectedCountries = Array.from(
-      document.getElementById('country-selector-3').selectedOptions
-    ).map(opt => opt.value);
+    const selectedCountry = document.getElementById('country-selector-3').value;
 
     const yearFrom = +document.getElementById("trace-year-from").value;
     const yearTo = +document.getElementById("trace-year-to").value;
 
-    if (selectedCountries.length === 0) {
+    if (!selectedCountry) {
       g.append("text")
         .attr("x", 200)
         .attr("y", 200)
         .attr("text-anchor", "middle")
         .style("font-family", "DM Mono, monospace")
         .style("fill", "var(--text-secondary)")
-        .text("Please select at least one country");
+        .text("Please select a country");
       return;
     }
 
     const traceData = globalData.filter(d => 
-      selectedCountries.includes(d.country) &&
+      d.country === selectedCountry &&
       d.year >= yearFrom && d.year <= yearTo &&
       d.gdp > 0 && getCO2Value(d) > 0
     );
@@ -773,17 +778,17 @@ function createChart3PathTracing() {
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom);
 
-    // Group data by country
-    const dataByCountry = d3.group(traceData, d => d.country);
+    // Sort data by year
+    const sorted = traceData.sort((a, b) => a.year - b.year);
 
     // Scales
     const x = d3.scaleLog()
-      .domain(d3.extent(traceData, d => d.gdp))
+      .domain(d3.extent(sorted, d => d.gdp))
       .range([0, width])
       .nice();
 
     const y = d3.scaleLinear()
-      .domain([0, d3.max(traceData, d => getCO2Value(d)) * 1.1])
+      .domain([0, d3.max(sorted, d => getCO2Value(d)) * 1.1])
       .range([height, 0]);
 
     // Grid
@@ -797,91 +802,87 @@ function createChart3PathTracing() {
       .y(d => y(getCO2Value(d)))
       .curve(d3.curveLinear);
 
-    // Draw paths for each country
-    dataByCountry.forEach((countryData, country) => {
-      const sorted = countryData.sort((a, b) => a.year - b.year);
-      const color = getCountryColor(country);
+    const color = getCountryColor(selectedCountry);
 
-      // Path
-      g.append("path")
-        .datum(sorted)
-        .attr("class", "trace-path")
-        .attr("d", line)
-        .attr("stroke", color)
-        .attr("stroke-width", 2.5)
-        .attr("fill", "none")
-        .attr("opacity", 0.8)
-        .on("mouseover", function() {
-          d3.select(this).attr("stroke-width", 4).attr("opacity", 1);
-        })
-        .on("mouseout", function() {
-          d3.select(this).attr("stroke-width", 2.5).attr("opacity", 0.8);
-        });
+    // Path
+    g.append("path")
+      .datum(sorted)
+      .attr("class", "trace-path")
+      .attr("d", line)
+      .attr("stroke", color)
+      .attr("stroke-width", 2.5)
+      .attr("fill", "none")
+      .attr("opacity", 0.8)
+      .on("mouseover", function() {
+        d3.select(this).attr("stroke-width", 4).attr("opacity", 1);
+      })
+      .on("mouseout", function() {
+        d3.select(this).attr("stroke-width", 2.5).attr("opacity", 0.8);
+      });
 
-      // Points at each year
-      g.selectAll(`.point-${country.replace(/\s+/g, "-")}`)
-        .data(sorted)
-        .enter()
-        .append("circle")
-        .attr("cx", d => x(d.gdp))
-        .attr("cy", d => y(getCO2Value(d)))
-        .attr("r", 4)
-        .attr("fill", color)
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 1.5)
-        .on("mouseover", function(event, d) {
-          d3.select(this).attr("r", 7);
-          const idx = sorted.indexOf(d);
-          const prev = idx > 0 ? sorted[idx - 1] : null;
-          
-          let tooltip = `<strong>${country} (${d.year})</strong><br/>
-            GDP: ${formatBillions(d.gdp)}<br/>
-            CO₂: ${getCO2Value(d).toFixed(1)} Mt`;
-          
-          if (prev) {
-            const gdpChange = ((d.gdp - prev.gdp) / prev.gdp * 100).toFixed(1);
-            const co2Change = ((getCO2Value(d) - getCO2Value(prev)) / getCO2Value(prev) * 100).toFixed(1);
-            tooltip += `<br/>GDP Change: ${gdpChange > 0 ? '+' : ''}${gdpChange}%`;
-            tooltip += `<br/>CO₂ Change: ${co2Change > 0 ? '+' : ''}${co2Change}%`;
-          }
-          
-          showTooltip(event, tooltip);
-        })
-        .on("mouseout", function() {
-          d3.select(this).attr("r", 4);
-          hideTooltip();
-        });
+    // Points at each year
+    g.selectAll(`.point-${selectedCountry.replace(/\s+/g, "-")}`)
+      .data(sorted)
+      .enter()
+      .append("circle")
+      .attr("cx", d => x(d.gdp))
+      .attr("cy", d => y(getCO2Value(d)))
+      .attr("r", 4)
+      .attr("fill", color)
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 1.5)
+      .on("mouseover", function(event, d) {
+        d3.select(this).attr("r", 7);
+        const idx = sorted.indexOf(d);
+        const prev = idx > 0 ? sorted[idx - 1] : null;
+        
+        let tooltip = `<strong>${selectedCountry} (${d.year})</strong><br/>
+          GDP: ${formatBillions(d.gdp)}<br/>
+          CO₂: ${getCO2Value(d).toFixed(1)} Mt`;
+        
+        if (prev) {
+          const gdpChange = ((d.gdp - prev.gdp) / prev.gdp * 100).toFixed(1);
+          const co2Change = ((getCO2Value(d) - getCO2Value(prev)) / getCO2Value(prev) * 100).toFixed(1);
+          tooltip += `<br/>GDP Change: ${gdpChange > 0 ? '+' : ''}${gdpChange}%`;
+          tooltip += `<br/>CO₂ Change: ${co2Change > 0 ? '+' : ''}${co2Change}%`;
+        }
+        
+        showTooltip(event, tooltip);
+      })
+      .on("mouseout", function() {
+        d3.select(this).attr("r", 4);
+        hideTooltip();
+      });
 
-      // Start label
-      const first = sorted[0];
-      g.append("text")
-        .attr("x", x(first.gdp) + 10)
-        .attr("y", y(getCO2Value(first)) - 5)
-        .text(`${country} (${first.year})`)
-        .attr("fill", color)
-        .style("font-size", "0.65rem")
-        .style("font-family", "DM Mono, monospace")
-        .style("font-weight", "600");
+    // Start label
+    const first = sorted[0];
+    g.append("text")
+      .attr("x", x(first.gdp) + 10)
+      .attr("y", y(getCO2Value(first)) - 5)
+      .text(`${selectedCountry} (${first.year})`)
+      .attr("fill", color)
+      .style("font-size", "0.65rem")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-weight", "600");
 
-      // End marker with arrow
-      const last = sorted[sorted.length - 1];
-      g.append("circle")
-        .attr("cx", x(last.gdp))
-        .attr("cy", y(getCO2Value(last)))
-        .attr("r", 6)
-        .attr("fill", color)
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 2);
+    // End marker with arrow
+    const last = sorted[sorted.length - 1];
+    g.append("circle")
+      .attr("cx", x(last.gdp))
+      .attr("cy", y(getCO2Value(last)))
+      .attr("r", 6)
+      .attr("fill", color)
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2);
 
-      g.append("text")
-        .attr("x", x(last.gdp) + 10)
-        .attr("y", y(getCO2Value(last)) + 4)
-        .text(`${last.year}`)
-        .attr("fill", color)
-        .style("font-size", "0.7rem")
-        .style("font-family", "DM Mono, monospace")
-        .style("font-weight", "700");
-    });
+    g.append("text")
+      .attr("x", x(last.gdp) + 10)
+      .attr("y", y(getCO2Value(last)) + 4)
+      .text(`${last.year}`)
+      .attr("fill", color)
+      .style("font-size", "0.7rem")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-weight", "700");
 
     // Axes
     const logTicks = buildPowerOf10Ticks(x);

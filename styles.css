@@ -475,6 +475,51 @@ svg { overflow: visible; }
 .file-upload-info { font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--text-secondary); }
 .data-status { margin-top: 1rem; font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--accent-cool); }
 
+/* =====================================================
+   CHART ROW LAYOUT - For Charts 2 & 3 Side-by-Side
+   ===================================================== */
+
+/* Chart Row Container - Makes charts appear side by side */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two equal columns */
+  gap: 1.25rem; /* Match dashboard gap */
+  grid-column: 1 / -1; /* Span full width of dashboard grid */
+  margin-bottom: 0; /* Dashboard gap handles spacing */
+}
+
+/* Ensure charts in the row take full width of their container */
+.chart-row .chart-container {
+  width: 100%;
+  margin-bottom: 0; /* Gap handles spacing */
+}
+
+/* Make charts responsive - stack on smaller screens */
+@media (max-width: 1024px) {
+  .chart-row {
+    grid-template-columns: 1fr; /* Single column on tablets/mobile */
+  }
+  
+  .chart-row .chart-container {
+    margin-bottom: 1.25rem; /* Add back bottom margin when stacked */
+  }
+  
+  .chart-row .chart-container:last-child {
+    margin-bottom: 0; /* Remove margin from last item */
+  }
+}
+
+/* Optional: Ensure both charts have same minimum height on desktop */
+@media (min-width: 1025px) {
+  .chart-row .chart-container {
+    min-height: 600px; /* Ensure both charts have same minimum height */
+  }
+}
+
+/* =====================================================
+   END OF CHART ROW LAYOUT
+   ===================================================== */
+
 /* Responsive */
 @media (max-width: 1200px) {
   .dashboard { grid-template-columns: 1fr; }

@@ -71,61 +71,64 @@
       <div id="legend1" class="legend"></div>
     </div>
 
-    <!-- Chart 2 -->
-    <div class="chart-container">
-      <h2 class="chart-title">Per Capita Emissions Ranking</h2>
-      <p class="chart-description">Top 15 countries by CO₂ emissions per person</p>
+    <!-- Chart 2 and Chart 3 Side by Side -->
+    <div class="chart-row">
+      <!-- Chart 2 (Left Side) -->
+      <div class="chart-container">
+        <h2 class="chart-title">Per Capita Emissions Ranking</h2>
+        <p class="chart-description">Top 15 countries by CO₂ emissions per person</p>
 
-      <div class="controls">
-        <div class="control-group">
-          <label>Year</label>
-          <input type="range" id="year-slider-2" step="1" />
-          <span class="year-display" id="year-display-2"></span>
+        <div class="controls">
+          <div class="control-group">
+            <label>Year</label>
+            <input type="range" id="year-slider-2" step="1" />
+            <span class="year-display" id="year-display-2"></span>
+          </div>
         </div>
+
+        <div id="chart2"></div>
       </div>
 
-      <div id="chart2"></div>
-    </div>
+      <!-- Chart 3 (Right Side) -->
+      <div class="chart-container">
+        <h2 class="chart-title">Economic Growth vs Emissions</h2>
+        <p class="chart-description" id="chart3-description">Explore the relationship between GDP and CO₂ emissions</p>
 
-    <!-- Chart 3 -->
-    <div class="chart-container full-width">
-      <h2 class="chart-title">Economic Growth vs Emissions</h2>
-      <p class="chart-description" id="chart3-description">Explore the relationship between GDP and CO₂ emissions</p>
+        <div class="controls">
+          <div class="control-group">
+            <label>View Mode</label>
+            <div class="view-toggle">
+              <button id="btn-bubble-view" class="view-toggle-btn active">Bubble View</button>
+              <button id="btn-path-view" class="view-toggle-btn">Path Tracing</button>
+            </div>
+          </div>
 
-      <div class="controls">
-        <div class="control-group">
-          <label>View Mode</label>
-          <div class="view-toggle">
-            <button id="btn-bubble-view" class="view-toggle-btn active">Bubble View</button>
-            <button id="btn-path-view" class="view-toggle-btn">Path Tracing</button>
+          <!-- Bubble View Controls -->
+          <div id="bubble-controls" class="control-group">
+            <label>Year</label>
+            <input type="range" id="year-slider-3" step="1" />
+            <span class="year-display" id="year-display-3"></span>
+          </div>
+
+          <!-- Path Tracing Controls -->
+          <div id="path-controls" style="display: none;">
+            <div class="control-group">
+              <label>Select Country</label>
+              <select id="country-selector-3"></select>
+            </div>
+            <div class="control-group">
+              <label>From Year</label>
+              <input type="number" id="trace-year-from" />
+            </div>
+            <div class="control-group">
+              <label>To Year</label>
+              <input type="number" id="trace-year-to" />
+            </div>
           </div>
         </div>
 
-        <!-- Bubble View Controls -->
-        <div id="bubble-controls" class="control-group">
-          <label>Year</label>
-          <input type="range" id="year-slider-3" step="1" />
-          <span class="year-display" id="year-display-3"></span>
-        </div>
-
-        <!-- Path Tracing Controls -->
-        <div id="path-controls" style="display: none;">
-          <div class="control-group">
-            <label>Select Countries</label>
-            <select id="country-selector-3" multiple size="6"></select>
-          </div>
-          <div class="control-group">
-            <label>From Year</label>
-            <input type="number" id="trace-year-from" />
-          </div>
-          <div class="control-group">
-            <label>To Year</label>
-            <input type="number" id="trace-year-to" />
-          </div>
-        </div>
+        <div id="chart3"></div>
       </div>
-
-      <div id="chart3"></div>
     </div>
 
     <!-- Chart 4 -->
