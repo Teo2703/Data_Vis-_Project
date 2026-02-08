@@ -214,7 +214,7 @@ function populateCountrySelectors() {
     const option = document.createElement("option");
     option.value = country;
     option.textContent = country;
-    if (country === "United States") {
+    if (country === "Afghanistan") {
       option.selected = true;
     }
     selector3.appendChild(option);
@@ -229,7 +229,7 @@ function populateCountrySelectors() {
       selector.appendChild(option);
     });
 
-    selector.value = allCountries.includes("World") ? "World" : allCountries[0];
+    selector.value = allCountries.includes("Afghanistan") ? "Afghanistan" : allCountries[0];
   });
 }
 
@@ -419,13 +419,39 @@ function updateChart1() {
 
     const color = getCountryColor(country);
 
+    // Create invisible thicker line for better mouse interaction
+    svg.append("path")
+      .datum(countryData)
+      .attr("d", line)
+      .attr("stroke", "transparent")
+      .attr("stroke-width", 15)
+      .attr("fill", "none")
+      .style("cursor", "crosshair")
+      .on("mousemove", function(event) {
+        const [mouseX] = d3.pointer(event, this);
+        const xYear = x.invert(mouseX);
+        
+        // Find closest data point
+        const bisect = d3.bisector(d => d.year).left;
+        const index = bisect(countryData, xYear);
+        const d0 = countryData[index - 1];
+        const d1 = countryData[index];
+        const d = d1 && d0 ? (xYear - d0.year > d1.year - xYear ? d1 : d0) : (d0 || d1);
+        
+        if (d) {
+          const emissionLabel = emissionType === 'production' ? 'Production CO₂' : 'Consumption CO₂';
+          showTooltip(event, `<strong>${country}</strong><br/>Year: ${d.year}<br/>${emissionLabel}: ${getCO2Value(d).toFixed(1)} Mt`);
+        }
+      })
+      .on("mouseout", hideTooltip);
+
+    // Visible line
     svg.append("path")
       .datum(countryData)
       .attr("class", "line")
       .attr("d", line)
       .attr("stroke", color)
-      .on("mouseover", (event) => showTooltip(event, `<strong>${country}</strong>`))
-      .on("mouseout", hideTooltip);
+      .attr("pointer-events", "none");
 
     svg.selectAll(`.point-${country.replace(/\s+/g, "-")}`)
       .data(countryData)
@@ -854,36 +880,6 @@ function createChart3PathTracing() {
         hideTooltip();
       });
 
-    // Start label
-    const first = sorted[0];
-    g.append("text")
-      .attr("x", x(first.gdp) + 10)
-      .attr("y", y(getCO2Value(first)) - 5)
-      .text(`${selectedCountry} (${first.year})`)
-      .attr("fill", color)
-      .style("font-size", "0.65rem")
-      .style("font-family", "DM Mono, monospace")
-      .style("font-weight", "600");
-
-    // End marker with arrow
-    const last = sorted[sorted.length - 1];
-    g.append("circle")
-      .attr("cx", x(last.gdp))
-      .attr("cy", y(getCO2Value(last)))
-      .attr("r", 6)
-      .attr("fill", color)
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 2);
-
-    g.append("text")
-      .attr("x", x(last.gdp) + 10)
-      .attr("y", y(getCO2Value(last)) + 4)
-      .text(`${last.year}`)
-      .attr("fill", color)
-      .style("font-size", "0.7rem")
-      .style("font-family", "DM Mono, monospace")
-      .style("font-weight", "700");
-
     // Axes
     const logTicks = buildPowerOf10Ticks(x);
 
@@ -995,12 +991,46 @@ function createChart4() {
       .attr("d", area)
       .attr("fill", d => sourceColors(d.key))
       .attr("opacity", 0.8)
-      .on("mouseover", (event, d) => showTooltip(event, `<strong>${sourceLabels[d.key]}</strong>`))
+      .attr("stroke", "#1a2028") // Add border color (matches background)
+      .attr("stroke-width", 1) // Border width
+      .style("cursor", "crosshair")
+      .on("mousemove", function(event, d) {
+        const [mouseX] = d3.pointer(event, this);
+        const xYear = Math.round(x.invert(mouseX));
+        
+        // Find data point for this year
+        const dataPoint = countryData.find(item => item.year === xYear);
+        if (dataPoint) {
+          const value = dataPoint[d.key];
+          showTooltip(event, `<strong>${sourceLabels[d.key]}</strong><br/>Year: ${xYear}<br/>Emissions: ${value.toFixed(2)} Mt`);
+        }
+      })
       .on("mouseout", hideTooltip);
 
     svg.append("g").attr("class", "axis").attr("transform", `translate(0,${height})`)
       .call(d3.axisBottom(x).tickFormat(d3.format("d")));
     svg.append("g").attr("class", "axis").call(d3.axisLeft(y));
+
+    // X-axis label
+    svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", height + 40)
+      .attr("text-anchor", "middle")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.75rem")
+      .style("fill", "var(--text-secondary)")
+      .text("Year");
+
+    // Y-axis label
+    svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -height / 2)
+      .attr("y", -60)
+      .attr("text-anchor", "middle")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.75rem")
+      .style("fill", "var(--text-secondary)")
+      .text("Million Tonnes (Mt)");
 
     const legend = d3.select("#legend4");
     legend.selectAll("*").remove();
@@ -1213,8 +1243,13 @@ function createChart6() {
 
   function update() {
     const country = document.getElementById("country-selector-6").value;
-    const countryData = globalData
-      .filter(d => d.country === country && (d.methane > 0 || d.nitrous_oxide > 0 || d.total_ghg > 0))
+    const countryData = globalData 
+    .filter(d =>
+    d.country === country &&
+    d.iso_code &&
+    d.iso_code.length === 3 &&
+    (d.methane > 0 || d.nitrous_oxide > 0 || d.total_ghg > 0)
+  ) 
       .sort((a, b) => a.year - b.year);
 
     svg.selectAll("*").remove();
@@ -1234,18 +1269,65 @@ function createChart6() {
 
     gases.forEach(gas => {
       line.y(d => y(d[gas]));
+      
+      // Invisible thicker line for better interaction
+      svg.append("path")
+        .datum(countryData)
+        .attr("d", line)
+        .attr("stroke", "transparent")
+        .attr("stroke-width", 15)
+        .attr("fill", "none")
+        .style("cursor", "crosshair")
+        .on("mousemove", function(event) {
+          const [mouseX] = d3.pointer(event, this);
+          const xYear = x.invert(mouseX);
+          
+          // Find closest data point
+          const bisect = d3.bisector(d => d.year).left;
+          const index = bisect(countryData, xYear);
+          const d0 = countryData[index - 1];
+          const d1 = countryData[index];
+          const d = d1 && d0 ? (xYear - d0.year > d1.year - xYear ? d1 : d0) : (d0 || d1);
+          
+          if (d) {
+            showTooltip(event, `<strong>${gasLabels[gas]}</strong><br/>Year: ${d.year}<br/>Emissions: ${d[gas].toFixed(2)} tonnes CO₂e`);
+          }
+        })
+        .on("mouseout", hideTooltip);
+      
+      // Visible line
       svg.append("path")
         .datum(countryData)
         .attr("class", "line")
         .attr("d", line)
         .attr("stroke", gasColors(gas))
-        .on("mouseover", (event) => showTooltip(event, `<strong>${gasLabels[gas]}</strong>`))
-        .on("mouseout", hideTooltip);
+        .attr("pointer-events", "none");
     });
 
     svg.append("g").attr("class", "axis").attr("transform", `translate(0,${height})`)
       .call(d3.axisBottom(x).tickFormat(d3.format("d")));
     svg.append("g").attr("class", "axis").call(d3.axisLeft(y));
+
+    // X-axis label
+    svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", height + 40)
+      .attr("text-anchor", "middle")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.75rem")
+      .style("fill", "var(--text-secondary)")
+      .text("Year");
+
+    // Y-axis label
+    svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -height / 2)
+      .attr("y", -60)
+      .attr("text-anchor", "middle")
+      .style("font-family", "DM Mono, monospace")
+      .style("font-size", "0.75rem")
+      .style("fill", "var(--text-secondary)")
+      .text("Tonnes CO₂-equivalents (100-year timescale)");
 
     const legend = d3.select("#legend6");
     legend.selectAll("*").remove();

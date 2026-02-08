@@ -516,6 +516,28 @@ svg { overflow: visible; }
   }
 }
 
+/* ---------- FIX: native <select> dropdown positioning ---------- */
+
+select {
+  /* Limit dropdown height to show ~8-10 options with scrollbar */
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+select option {
+  line-height: 1.4;
+}
+
+.chart-container {
+  /* Revert to original padding */
+  padding-bottom: 1.25rem;
+}
+
+#chart4, #chart6 {
+  /* No extra padding needed */
+  padding-bottom: 0;
+}
+
 /* =====================================================
    END OF CHART ROW LAYOUT
    ===================================================== */
