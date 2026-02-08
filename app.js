@@ -305,7 +305,7 @@ function updateChart3ViewToggle() {
     pathBtn.classList.remove('active');
     bubbleControls.style.display = 'flex';
     pathControls.style.display = 'none';
-    description.textContent = 'Explore the relationship between GDP and CO₂ emissions (bubble size = population)';
+    description.textContent = 'Examine the relationship between the top 20 GDP countries and CO₂ emissions.';
   } else {
     bubbleBtn.classList.remove('active');
     pathBtn.classList.add('active');
